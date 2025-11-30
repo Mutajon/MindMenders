@@ -21,9 +21,10 @@ class IsometricTile extends PositionComponent {
   @override
   void onLoad() {
     super.onLoad();
-    // Calculate isometric position
-    final isoX = (tileModel.x - tileModel.y) * tileWidth / 2;
-    final isoY = (tileModel.x + tileModel.y) * tileHeight / 2;
+    // Calculate isometric position with increased spacing for hexagons
+    // Hexagons need more horizontal space than diamonds
+    final isoX = (tileModel.x - tileModel.y) * tileWidth * 0.75;
+    final isoY = (tileModel.x + tileModel.y) * tileHeight * 0.5;
     position = Vector2(isoX, isoY);
   }
 
@@ -31,12 +32,17 @@ class IsometricTile extends PositionComponent {
   void render(Canvas canvas) {
     super.render(canvas);
 
-    // Define the isometric diamond shape
+    // Define the hexagon shape (flat-top orientation in isometric view)
+    final w = tileWidth / 2;
+    final h = tileHeight / 2;
+    
     final path = Path()
-      ..moveTo(0, -tileHeight / 2) // Top
-      ..lineTo(tileWidth / 2, 0) // Right
-      ..lineTo(0, tileHeight / 2) // Bottom
-      ..lineTo(-tileWidth / 2, 0) // Left
+      ..moveTo(-w * 0.5, -h) // Top-left
+      ..lineTo(w * 0.5, -h) // Top-right
+      ..lineTo(w, 0) // Right
+      ..lineTo(w * 0.5, h) // Bottom-right
+      ..lineTo(-w * 0.5, h) // Bottom-left
+      ..lineTo(-w, 0) // Left
       ..close();
 
     // Choose color based on tile type
@@ -80,24 +86,35 @@ class IsometricTile extends PositionComponent {
 
   @override
   bool containsLocalPoint(Vector2 point) {
-    // Check if point is inside the diamond shape
-    // Diamond vertices relative to center (anchor is center)
-    final top = Vector2(0, -tileHeight / 2);
-    final right = Vector2(tileWidth / 2, 0);
-    final bottom = Vector2(0, tileHeight / 2);
-    final left = Vector2(-tileWidth / 2, 0);
+    // Check if point is inside the hexagon shape
+    final w = tileWidth / 2;
+    final h = tileHeight / 2;
+    
+    // Hexagon vertices (same as in render method)
+    final vertices = [
+      Vector2(-w * 0.5, -h), // Top-left
+      Vector2(w * 0.5, -h),  // Top-right
+      Vector2(w, 0),         // Right
+      Vector2(w * 0.5, h),   // Bottom-right
+      Vector2(-w * 0.5, h),  // Bottom-left
+      Vector2(-w, 0),        // Left
+    ];
     
     // Use cross product to check if point is on the correct side of each edge
-    bool isInsideDiamond(Vector2 p, Vector2 v1, Vector2 v2) {
-      final edge = v2 - v1;
-      final toPoint = p - v1;
-      return edge.x * toPoint.y - edge.y * toPoint.x >= 0;
+    bool isInsidePolygon(Vector2 p, List<Vector2> verts) {
+      for (int i = 0; i < verts.length; i++) {
+        final v1 = verts[i];
+        final v2 = verts[(i + 1) % verts.length];
+        final edge = v2 - v1;
+        final toPoint = p - v1;
+        if (edge.x * toPoint.y - edge.y * toPoint.x < 0) {
+          return false;
+        }
+      }
+      return true;
     }
     
-    return isInsideDiamond(point, top, right) &&
-           isInsideDiamond(point, right, bottom) &&
-           isInsideDiamond(point, bottom, left) &&
-           isInsideDiamond(point, left, top);
+    return isInsidePolygon(point, vertices);
   }
 }
 
