@@ -4,17 +4,21 @@ import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
 import 'models/grid_data.dart';
 import 'models/tile_model.dart';
+import 'models/unit_model.dart';
 import 'components/isometric_tile.dart';
+import 'components/unit_component.dart';
 
 class MyGame extends Forge2DGame {
   late GridData gridData;
   TileModel? hoveredTile;
+  UnitModel? hoveredUnit;
   final Function(TileModel?)? onTileHoverChange;
+  final Function(UnitModel?)? onUnitHoverChange;
   
   // Keep track of the currently highlighted tile component to update its visual state
   IsometricTile? _highlightedComponent;
 
-  MyGame({this.onTileHoverChange}) : super(gravity: Vector2(0, 10.0));
+  MyGame({this.onTileHoverChange, this.onUnitHoverChange}) : super(gravity: Vector2(0, 10.0));
 
   @override
   Color backgroundColor() => const Color(0xFF2C2C2C);
@@ -55,17 +59,60 @@ class MyGame extends Forge2DGame {
         }
       }
     }
+    
+    // Create and add a demo unit at grid center
+    final demoUnit = UnitModel(
+      name: 'Knight',
+      hp: 3,
+      attackMode: 'Melee',
+      damageValue: 2,
+      defense: 1,
+      specialAbility: 'Shield Bash',
+      x: 5,
+      y: 5,
+    );
+    final unitComponent = UnitComponent(unitModel: demoUnit);
+    add(unitComponent);
+    unitComponent.position.add(Vector2(offsetX, offsetY));
+    
+    // Create and add an Archer unit at the left side
+    final archerUnit = UnitModel(
+      name: 'Archer',
+      hp: 2,
+      attackMode: 'Ranged',
+      damageValue: 3,
+      defense: 0,
+      specialAbility: 'Double Shot',
+      x: 0,
+      y: 5,
+    );
+    final archerComponent = UnitComponent(unitModel: archerUnit);
+    add(archerComponent);
+    archerComponent.position.add(Vector2(offsetX, offsetY));
   }
 
   void handleMouseMove(Vector2 position) {
     // Convert screen position to world position
     final worldPosition = camera.globalToLocal(position);
     
+    // Check for unit hover first (units are on top of tiles)
+    UnitModel? newHoveredUnit;
+    for (final component in children.whereType<UnitComponent>()) {
+      if (component.containsPoint(worldPosition)) {
+        newHoveredUnit = component.unitModel;
+        break;
+      }
+    }
+    
+    if (newHoveredUnit != hoveredUnit) {
+      hoveredUnit = newHoveredUnit;
+      onUnitHoverChange?.call(hoveredUnit);
+    }
+    
     // Find the tile that contains this point
     TileModel? newHoveredTile;
     
     // Iterate through all isometric tiles to find which one is hovered
-    // We reverse the list to check top-most tiles first (though for flat grid it matters less)
     for (final component in children.whereType<IsometricTile>()) {
       if (component.containsPoint(worldPosition)) {
         newHoveredTile = component.tileModel;

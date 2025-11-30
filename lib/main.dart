@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'game.dart';
 import 'main_menu.dart';
 import 'models/tile_model.dart';
+import 'models/unit_model.dart';
 import 'overlays/tile_info_overlay.dart';
+import 'overlays/unit_info_overlay.dart';
 
 void main() {
   runApp(const MyApp());
@@ -38,6 +40,7 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   TileModel? hoveredTile;
+  UnitModel? hoveredUnit;
   late MyGame game;
 
   @override
@@ -47,6 +50,11 @@ class _GameScreenState extends State<GameScreen> {
       onTileHoverChange: (tile) {
         setState(() {
           hoveredTile = tile;
+        });
+      },
+      onUnitHoverChange: (unit) {
+        setState(() {
+          hoveredUnit = unit;
         });
       },
     );
@@ -66,6 +74,7 @@ class _GameScreenState extends State<GameScreen> {
             },
             child: GameWidget(game: game),
           ),
+          UnitInfoOverlay(hoveredUnit: hoveredUnit),
           TileInfoOverlay(hoveredTile: hoveredTile),
         ],
       ),
