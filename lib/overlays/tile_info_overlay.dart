@@ -110,10 +110,11 @@ class TileInfoOverlay extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Position: (${hoveredTile!.x}, ${hoveredTile!.y})',
+                    hoveredTile!.walkable ? 'Walkable' : 'Blocked',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
+                      color: hoveredTile!.walkable ? Colors.greenAccent : Colors.redAccent,
                       fontSize: 10,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],

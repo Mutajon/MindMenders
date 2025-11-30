@@ -29,6 +29,7 @@ class GridData {
             y: y,
             type: tileData['type']!,
             description: tileData['description']!,
+            walkable: tileData['type'] == 'grass',
           );
         },
       ),
