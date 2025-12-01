@@ -10,9 +10,9 @@ class CardModel {
 
   CardModel({
     required this.id,
-    this.set = 'basic',
-    this.type = 'attack',
-    this.cardClass = 'neutral',
+    this.set = 'basic', //basic set, or expansion set
+    this.type = 'attack', //attack, support, etc.
+    this.cardClass = 'neutral', //to which class the card belongs (neutral, manipulator, healer.)
     this.effect = 'attack once',
     this.title = 'Basic Attack',
     this.description = 'attack once',
