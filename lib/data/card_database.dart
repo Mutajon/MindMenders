@@ -10,18 +10,37 @@ class CardDatabase {
       cardClass: 'neutral',
       effect: 'attack once',
       title: 'Basic Attack',
-      description: 'attack once',
+      description: 'Attack once',
+      flavourText: 'endless possibilities at the palm of your hand',
+    ),
+    CardModel(
+      id: 'basic_move',
+      set: 'basic',
+      type: 'move',
+      cardClass: 'neutral',
+      effect: 'move once',
+      title: 'Basic Move',
+      description: 'Move once',
+      flavourText: 'endless possibilities at the palm of your hand',
+    ),
+    CardModel(
+      id: 'basic_defend',
+      set: 'basic',
+      type: 'defend',
+      cardClass: 'neutral',
+      effect: 'defend once',
+      title: 'Basic Defend',
+      description: 'Defend once',
       flavourText: 'endless possibilities at the palm of your hand',
     ),
   ];
 
-  // Get initial player card pool (3 copies of basic attack)
+  // Get initial player card pool (one copy of each card from master pool)
   static List<CardModel> getInitialPlayerCardPool() {
-    final basicAttack = masterCardPool.first;
-    return [
-      basicAttack.copyWith(id: 'player_basic_attack_001'),
-      basicAttack.copyWith(id: 'player_basic_attack_002'),
-      basicAttack.copyWith(id: 'player_basic_attack_003'),
-    ];
+    return masterCardPool.asMap().entries.map((entry) {
+      final index = entry.key;
+      final card = entry.value;
+      return card.copyWith(id: 'player_${card.id}_${index + 1}');
+    }).toList();
   }
 }

@@ -1,13 +1,16 @@
 import 'package:flame/components.dart';
+import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import '../models/tile_model.dart';
+import '../game.dart';
 
-class IsometricTile extends PositionComponent {
+class IsometricTile extends PositionComponent with TapCallbacks {
   final TileModel tileModel;
   final double tileWidth;
   final double tileHeight;
   
   bool _isHovered = false;
+  bool _isMovementTarget = false;
 
   IsometricTile({
     required this.tileModel,
@@ -71,6 +74,20 @@ class IsometricTile extends PositionComponent {
       ..color = fillColor
       ..style = PaintingStyle.fill;
     canvas.drawPath(path, paint);
+    
+    // Draw movement target highlight (blue glow)
+    if (_isMovementTarget) {
+      final highlightPaint = Paint()
+        ..color = const Color(0xFF448AFF).withValues(alpha: 0.5)
+        ..style = PaintingStyle.fill;
+      canvas.drawPath(path, highlightPaint);
+      
+      final highlightBorderPaint = Paint()
+        ..color = const Color(0xFF448AFF)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0;
+      canvas.drawPath(path, highlightBorderPaint);
+    }
 
     // Draw border
     final borderPaint = Paint()
@@ -82,6 +99,10 @@ class IsometricTile extends PositionComponent {
   
   void setHovered(bool isHovered) {
     _isHovered = isHovered;
+  }
+  
+  void setMovementTarget(bool isTarget) {
+    _isMovementTarget = isTarget;
   }
 
   @override
@@ -115,6 +136,14 @@ class IsometricTile extends PositionComponent {
     }
     
     return isInsidePolygon(point, vertices);
+  }
+  
+  @override
+  void onTapDown(TapDownEvent event) {
+    final game = findParent<MyGame>();
+    if (game != null) {
+      game.handleTileTap(tileModel);
+    }
   }
 }
 

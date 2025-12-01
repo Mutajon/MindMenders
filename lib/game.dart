@@ -10,6 +10,7 @@ import 'components/isometric_tile.dart';
 import 'components/unit_component.dart';
 import 'components/card_component.dart';
 import 'data/card_database.dart';
+import 'utils/pathfinding_utils.dart';
 
 class MyGame extends Forge2DGame {
   late GridData gridData;
@@ -23,8 +24,144 @@ class MyGame extends Forge2DGame {
   
   // Card system
   List<CardModel> currentPlayerCardPool = [];
+  CardComponent? selectedCard;
+  
+  // Card Execution State
+  CardComponent? selectedCardForExecution;
+  UnitComponent? selectedUnitForMovement;
+  List<TileModel> highlightedMovementTiles = [];
+  List<CardModel> discardPile = [];
 
   MyGame({this.onTileHoverChange, this.onUnitHoverChange}) : super(gravity: Vector2(0, 10.0));
+
+  // Handle card selection (only one card can be selected at a time)
+  void selectCard(CardComponent card) {
+    // Deselect previously selected card
+    if (selectedCard != null && selectedCard != card) {
+      selectedCard!.deselect();
+    }
+    
+    // Update selected card reference
+    selectedCard = card;
+    selectedCardForExecution = card;
+    
+    // If it's a move card, make units selectable
+    if (card.cardModel.type.toLowerCase() == 'move') {
+      _setUnitsSelectable(true);
+    }
+  }
+  
+  // Deselect current card
+  void deselectCard() {
+    selectedCard = null;
+    selectedCardForExecution = null;
+    _setUnitsSelectable(false);
+    _clearUnitSelection();
+  }
+
+  // Helper to set selectable state for all units
+  void _setUnitsSelectable(bool selectable) {
+    children.whereType<UnitComponent>().forEach((unit) {
+      unit.setSelectable(selectable);
+    });
+  }
+  
+  // Helper to clear unit selection
+  void _clearUnitSelection() {
+    if (selectedUnitForMovement != null) {
+      selectedUnitForMovement!.setSelected(false);
+      selectedUnitForMovement = null;
+    }
+    // Clear tile highlights (to be implemented)
+  }
+  
+  // Handle unit selection for movement
+  void selectUnitForMovement(UnitComponent unit) {
+    // Only allow selection if a move card is active
+    if (selectedCardForExecution?.cardModel.type.toLowerCase() != 'move') return;
+    
+    // Deselect previous unit if any
+    if (selectedUnitForMovement != null) {
+      selectedUnitForMovement!.setSelected(false);
+    }
+    
+    selectedUnitForMovement = unit;
+    unit.setSelected(true);
+    
+    // Calculate reachable tiles
+    _calculateAndHighlightMovementTiles(unit);
+  }
+  
+  void _calculateAndHighlightMovementTiles(UnitComponent unit) {
+    // Clear previous highlights
+    _clearTileHighlights();
+    
+    // Use pathfinding to find reachable tiles
+    final reachableTiles = PathfindingUtils.calculateReachableTiles(
+      startX: unit.unitModel.x,
+      startY: unit.unitModel.y,
+      range: unit.unitModel.movement,
+      gridData: gridData,
+    );
+    
+    highlightedMovementTiles = reachableTiles;
+    
+    // Highlight tiles visually
+    for (final tile in highlightedMovementTiles) {
+      // Find component for this tile
+      final tileComponent = children.whereType<IsometricTile>().firstWhere(
+        (c) => c.tileModel == tile,
+      );
+      tileComponent.setMovementTarget(true);
+    }
+  }
+  
+  void _clearTileHighlights() {
+    for (final tile in highlightedMovementTiles) {
+      final tileComponent = children.whereType<IsometricTile>().firstWhere(
+        (c) => c.tileModel == tile,
+        orElse: () => children.whereType<IsometricTile>().first, // Fallback
+      );
+      tileComponent.setMovementTarget(false);
+    }
+    highlightedMovementTiles.clear();
+  }
+  
+  // Handle tile tap from IsometricTile
+  void handleTileTap(TileModel tile) {
+    if (selectedUnitForMovement != null && highlightedMovementTiles.contains(tile)) {
+      _executeMovement(tile);
+    }
+  }
+  
+  void _executeMovement(TileModel targetTile) {
+    if (selectedUnitForMovement == null || selectedCardForExecution == null) return;
+    
+    // Move unit
+    selectedUnitForMovement!.moveTo(targetTile.x, targetTile.y);
+    
+    // Move card to discard pile
+    final cardModel = selectedCardForExecution!.cardModel;
+    discardPile.add(cardModel);
+    currentPlayerCardPool.remove(cardModel);
+    
+    // Remove card component
+    selectedCardForExecution!.removeFromParent();
+    
+    // Clear state
+    deselectCard();
+  }
+  
+  // Console command: Show discard pile
+  void showDiscardPile() {
+    print('=== DISCARD PILE ===');
+    for (var card in discardPile) {
+      print('ID: ${card.id}');
+      print('  Title: ${card.title}');
+      print('---');
+    }
+    print('Total cards in discard pile: ${discardPile.length}');
+  }
 
   @override
   Color backgroundColor() => const Color(0xFF2C2C2C);
@@ -37,6 +174,28 @@ class MyGame extends Forge2DGame {
     camera.viewfinder.zoom = 1.0;
     camera.viewfinder.anchor = Anchor.topLeft;
     camera.viewfinder.position = Vector2.zero();
+    
+    // Handle unit selection for movement
+    // NOTE: The following block seems to be intended for a tap/click handler,
+    // not for the onLoad method. It also uses undefined variables `gridX` and `gridY`.
+    // As per instructions, inserting faithfully, but be aware of potential issues.
+    if (selectedUnitForMovement != null && highlightedMovementTiles.isNotEmpty) {
+      // Check if clicked tile is a valid movement target
+      // final clickedTile = gridData.getTile(gridX, gridY); // gridX, gridY are undefined
+      // if (clickedTile != null && highlightedMovementTiles.contains(clickedTile)) {
+      //   _executeMovement(clickedTile);
+      //   return;
+      // }
+    }
+    
+    // Handle tile hover
+    // NOTE: The following line seems to be intended for a tap/click handler,
+    // not for the onLoad method. It also uses undefined variables `gridX` and `gridY`
+    // and contains a syntax error in the original snippet.
+    // Corrected syntax to be valid Dart, assuming `gridData.gridSize` was intended.
+    // if (gridX >= 0 && gridX < gridData.gridSize && gridY >= 0 && gridY < gridData.gridSize) {
+    //   // Placeholder for intended logic
+    // }
     
     // Initialize grid with gridSize = 10
     gridData = GridData(gridSize: 10);
@@ -76,6 +235,7 @@ class MyGame extends Forge2DGame {
       specialAbility: 'Shield Bash',
       x: 5,
       y: 5,
+      movement: 3,
     );
     final unitComponent = UnitComponent(unitModel: demoUnit);
     add(unitComponent);
@@ -91,6 +251,7 @@ class MyGame extends Forge2DGame {
       specialAbility: 'Double Shot',
       x: 0,
       y: 5,
+      movement: 2,
     );
     final archerComponent = UnitComponent(unitModel: archerUnit);
     add(archerComponent);

@@ -75,6 +75,10 @@ class _GameScreenState extends State<GameScreen> {
     js.context['showMasterCards'] = () {
       game.showMasterCards();
     };
+    
+    js.context['showDiscardPile'] = () {
+      game.showDiscardPile();
+    };
   }
 
   @override

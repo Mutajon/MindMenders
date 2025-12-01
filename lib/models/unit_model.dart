@@ -7,6 +7,7 @@ class UnitModel {
   final String specialAbility;
   final int x;
   final int y;
+  final int movement;
 
   UnitModel({
     required this.name,
@@ -17,5 +18,6 @@ class UnitModel {
     required this.specialAbility,
     required this.x,
     required this.y,
+    this.movement = 3,
   });
 }

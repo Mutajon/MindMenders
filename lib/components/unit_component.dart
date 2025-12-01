@@ -1,12 +1,23 @@
 import 'dart:math';
 import 'package:flame/components.dart';
+import 'package:flame/effects.dart';
+import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import '../models/unit_model.dart';
+import '../game.dart';
 
-class UnitComponent extends PositionComponent {
+class UnitComponent extends PositionComponent with TapCallbacks {
   final UnitModel unitModel;
   final double tileWidth;
   final double tileHeight;
+  
+  // Selection states
+  bool _isSelectable = false;
+  bool _isSelectedForAction = false;
+  
+  // Effects
+  OpacityEffect? _pulseEffect;
+  double _haloOpacity = 0.0;
 
   UnitComponent({
     required this.unitModel,
@@ -25,12 +36,90 @@ class UnitComponent extends PositionComponent {
     final isoY = (unitModel.x + unitModel.y) * tileHeight * 0.5;
     position = Vector2(isoX, isoY);
   }
+  
+  // Set selectable state (pulsing white halo)
+  void setSelectable(bool selectable) {
+    if (_isSelectable == selectable) return;
+    
+    _isSelectable = selectable;
+    
+    if (_isSelectable) {
+      // Start pulsing
+      _startPulsing();
+    } else {
+      // Stop pulsing if not selected
+      if (!_isSelectedForAction) {
+        _stopPulsing();
+      }
+    }
+  }
+  
+  // Set selected state (static white halo)
+  void setSelected(bool selected) {
+    if (_isSelectedForAction == selected) return;
+    
+    _isSelectedForAction = selected;
+    
+    if (_isSelectedForAction) {
+      // Stop pulsing, show static halo
+      _stopPulsing();
+      _haloOpacity = 1.0;
+    } else {
+      // If still selectable, resume pulsing
+      if (_isSelectable) {
+        _startPulsing();
+      } else {
+        _haloOpacity = 0.0;
+      }
+    }
+  }
+  
+  void _startPulsing() {
+    _pulseEffect?.removeFromParent();
+    _haloOpacity = 0.5; // Start at mid-opacity
+    
+    _pulseEffect = OpacityEffect.to(
+      1.0,
+      EffectController(
+        duration: 0.8,
+        reverseDuration: 0.8,
+        infinite: true,
+      ),
+      onComplete: () {
+        // This won't run because infinite is true, but good practice
+      },
+      target: _HaloTarget(this),
+    );
+    add(_pulseEffect!);
+  }
+  
+  void _stopPulsing() {
+    _pulseEffect?.removeFromParent();
+    _pulseEffect = null;
+    _haloOpacity = 0.0;
+  }
 
   @override
   void render(Canvas canvas) {
     super.render(canvas);
 
     final radius = size.x / 2;
+    
+    // Draw halo if selectable or selected
+    if (_isSelectable || _isSelectedForAction) {
+      final haloPaint = Paint()
+        ..color = Colors.white.withValues(alpha: _haloOpacity * 0.6)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+      
+      canvas.drawCircle(Offset.zero, radius + 8, haloPaint);
+      
+      // Inner glow
+      final innerGlowPaint = Paint()
+        ..color = Colors.white.withValues(alpha: _haloOpacity * 0.4)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
+        
+      canvas.drawCircle(Offset.zero, radius + 4, innerGlowPaint);
+    }
     
     // Determine color and icon based on unit type
     Color unitColor;
@@ -61,9 +150,9 @@ class UnitComponent extends PositionComponent {
     
     // Border
     final borderPaint = Paint()
-      ..color = Colors.white
+      ..color = _isSelectedForAction ? Colors.white : Colors.white.withValues(alpha: 0.8)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
+      ..strokeWidth = _isSelectedForAction ? 3.0 : 2.0;
     canvas.drawCircle(Offset.zero, radius, borderPaint);
     
     // Draw icon
@@ -91,5 +180,47 @@ class UnitComponent extends PositionComponent {
     final radius = size.x / 2;
     return point.length <= radius;
   }
+  
+  @override
+  void onTapDown(TapDownEvent event) {
+    if (!_isSelectable) return;
+    
+    final game = findParent<MyGame>();
+    if (game != null) {
+      game.selectUnitForMovement(this);
+    }
+  }
+  
+  // Move unit to new grid coordinates with animation
+  void moveTo(int newX, int newY) {
+    // Calculate target position
+    final isoX = (newX - newY) * tileWidth * 0.75;
+    final isoY = (newX + newY) * tileHeight * 0.5;
+    final targetPos = Vector2(isoX, isoY);
+    
+    // Animate movement with spring-like effect
+    add(
+      MoveToEffect(
+        targetPos,
+        EffectController(
+          duration: 0.6,
+          curve: Curves.elasticOut, // Spring-like bounce
+        ),
+      ),
+    );
+  }
 
+}
+
+// Helper class to target the halo opacity for effects
+class _HaloTarget implements OpacityProvider {
+  final UnitComponent component;
+  
+  _HaloTarget(this.component);
+  
+  @override
+  double get opacity => component._haloOpacity;
+  
+  @override
+  set opacity(double value) => component._haloOpacity = value;
 }
