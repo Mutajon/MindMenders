@@ -1,6 +1,8 @@
-import 'package:flame/components.dart';
-import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:flame/game.dart';
+import 'package:flame/components.dart';
+import 'dart:html' as html;
+import 'dart:js' as js;
 import 'game.dart';
 import 'main_menu.dart';
 import 'models/tile_model.dart';
@@ -58,6 +60,21 @@ class _GameScreenState extends State<GameScreen> {
         });
       },
     );
+    
+    // Expose game instance to browser console for debug commands
+    _exposeToConsole();
+  }
+  
+  
+  void _exposeToConsole() {
+    // Expose commands to browser console using dart:js
+    js.context['showPlayerCards'] = () {
+      game.showPlayerCards();
+    };
+    
+    js.context['showMasterCards'] = () {
+      game.showMasterCards();
+    };
   }
 
   @override

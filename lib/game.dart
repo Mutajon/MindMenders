@@ -5,8 +5,11 @@ import 'package:flutter/material.dart';
 import 'models/grid_data.dart';
 import 'models/tile_model.dart';
 import 'models/unit_model.dart';
+import 'models/card_model.dart';
 import 'components/isometric_tile.dart';
 import 'components/unit_component.dart';
+import 'components/card_component.dart';
+import 'data/card_database.dart';
 
 class MyGame extends Forge2DGame {
   late GridData gridData;
@@ -17,6 +20,9 @@ class MyGame extends Forge2DGame {
   
   // Keep track of the currently highlighted tile component to update its visual state
   IsometricTile? _highlightedComponent;
+  
+  // Card system
+  List<CardModel> currentPlayerCardPool = [];
 
   MyGame({this.onTileHoverChange, this.onUnitHoverChange}) : super(gravity: Vector2(0, 10.0));
 
@@ -89,6 +95,27 @@ class MyGame extends Forge2DGame {
     final archerComponent = UnitComponent(unitModel: archerUnit);
     add(archerComponent);
     archerComponent.position.add(Vector2(offsetX, offsetY));
+    
+    // Initialize card system
+    currentPlayerCardPool = CardDatabase.getInitialPlayerCardPool();
+    
+    // Display cards at bottom of screen
+    final screenWidth = size.x;
+    final screenHeight = size.y;
+    final cardSpacing = 10.0;
+    final totalCardWidth = (CardComponent.cardWidth * currentPlayerCardPool.length) + 
+                          (cardSpacing * (currentPlayerCardPool.length - 1));
+    final startX = (screenWidth - totalCardWidth) / 2 + (CardComponent.cardWidth / 2);
+    final cardY = screenHeight - CardComponent.cardHeight / 2 - 20;
+    
+    for (int i = 0; i < currentPlayerCardPool.length; i++) {
+      final cardX = startX + (i * (CardComponent.cardWidth + cardSpacing));
+      final cardComponent = CardComponent(
+        cardModel: currentPlayerCardPool[i],
+        position: Vector2(cardX, cardY),
+      );
+      add(cardComponent);
+    }
   }
 
   void handleMouseMove(Vector2 position) {
@@ -143,5 +170,40 @@ class MyGame extends Forge2DGame {
         }
       }
     }
+  }
+  
+  // Expose debug commands to browser console
+  void _setupConsoleCommands() {
+    // These methods will be callable from browser console
+  }
+  
+  // Console command: Show current player card pool
+  void showPlayerCards() {
+    print('=== CURRENT PLAYER CARD POOL ===');
+    for (var card in currentPlayerCardPool) {
+      print('ID: ${card.id}');
+      print('  Title: ${card.title}');
+      print('  Type: ${card.type}');
+      print('  Class: ${card.cardClass}');
+      print('  Effect: ${card.effect}');
+      print('  Set: ${card.set}');
+      print('---');
+    }
+    print('Total cards in player pool: ${currentPlayerCardPool.length}');
+  }
+  
+  // Console command: Show master card pool
+  void showMasterCards() {
+    print('=== MASTER CARD POOL ===');
+    for (var card in CardDatabase.masterCardPool) {
+      print('ID: ${card.id}');
+      print('  Title: ${card.title}');
+      print('  Type: ${card.type}');
+      print('  Class: ${card.cardClass}');
+      print('  Effect: ${card.effect}');
+      print('  Set: ${card.set}');
+      print('---');
+    }
+    print('Total cards in master pool: ${CardDatabase.masterCardPool.length}');
   }
 }
