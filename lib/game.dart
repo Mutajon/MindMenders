@@ -11,9 +11,11 @@ import 'components/unit_component.dart';
 import 'components/card_component.dart';
 import 'data/card_database.dart';
 import 'utils/pathfinding_utils.dart';
+import 'utils/grid_utils.dart';
 
 class MyGame extends Forge2DGame {
   late GridData gridData;
+  late GridUtils gridUtils;
   TileModel? hoveredTile;
   UnitModel? hoveredUnit;
   final Function(TileModel?)? onTileHoverChange;
@@ -21,6 +23,12 @@ class MyGame extends Forge2DGame {
   
   // Keep track of the currently highlighted tile component to update its visual state
   IsometricTile? _highlightedComponent;
+
+  // Tile lookup map for efficient coordinate-based access
+  final Map<String, IsometricTile> _tileComponents = {};
+
+  // Get tile component at grid coordinates
+  IsometricTile? getTileAt(int x, int y) => _tileComponents['$x,$y'];
   
   // Card system
   List<CardModel> currentPlayerCardPool = [];
@@ -80,11 +88,24 @@ class MyGame extends Forge2DGame {
     // Only allow selection if a move card is active
     if (selectedCardForExecution?.cardModel.type.toLowerCase() != 'move') return;
     
+    // Clear previous tile highlights
+    _clearTileHighlights();
+    
     // Deselect previous unit if any
     if (selectedUnitForMovement != null) {
       selectedUnitForMovement!.setSelected(false);
+      selectedUnitForMovement!.setSelectable(false); // Hide halo
     }
     
+    // Hide halos from all other units (but keep them clickable)
+    children.whereType<UnitComponent>().forEach((u) {
+      if (u != unit) {
+        u.setSelected(false);
+        u.setSelectable(false);
+      }
+    });
+    
+    // Select the new unit (show static halo)
     selectedUnitForMovement = unit;
     unit.setSelected(true);
     
@@ -197,19 +218,13 @@ class MyGame extends Forge2DGame {
     //   // Placeholder for intended logic
     // }
     
-    // Initialize grid with gridSize = 10
+    // Initialize GridUtils and grid data
+    gridUtils = GridUtils(tileWidth: 64.0, tileHeight: 32.0);
     gridData = GridData(gridSize: 10);
-    
-    // Calculate offset to center the grid
-    // The grid center in isometric space
-    final gridCenter = gridData.gridSize / 2;
-    final gridCenterX = (gridCenter - gridCenter) * 32; // Will be 0
-    final gridCenterY = (gridCenter + gridCenter) * 16; // gridSize * 16
-    
-    // Offset to move grid to screen center
-    final offsetX = size.x / 2 - gridCenterX;
-    final offsetY = size.y / 2 - gridCenterY;
-    
+
+    // Calculate centering offset using GridUtils
+    final offset = gridUtils.getCenteringOffset(size, gridData.gridSize);
+
     // Create and add isometric tiles with offset
     for (int x = 0; x < gridData.gridSize; x++) {
       for (int y = 0; y < gridData.gridSize; y++) {
@@ -217,14 +232,17 @@ class MyGame extends Forge2DGame {
         if (tile != null) {
           final tileComponent = IsometricTile(
             tileModel: tile,
+            gridUtils: gridUtils,
           );
           add(tileComponent);
-          // Apply offset after adding
-          tileComponent.position.add(Vector2(offsetX, offsetY));
+          // Apply centering offset
+          tileComponent.position.add(offset);
+          // Store in lookup map
+          _tileComponents['${tile.x},${tile.y}'] = tileComponent;
         }
       }
     }
-    
+
     // Create and add a demo unit at grid center
     final demoUnit = UnitModel(
       name: 'Knight',
@@ -239,8 +257,7 @@ class MyGame extends Forge2DGame {
     );
     final unitComponent = UnitComponent(unitModel: demoUnit);
     add(unitComponent);
-    unitComponent.position.add(Vector2(offsetX, offsetY));
-    
+
     // Create and add an Archer unit at the left side
     final archerUnit = UnitModel(
       name: 'Archer',
@@ -255,7 +272,6 @@ class MyGame extends Forge2DGame {
     );
     final archerComponent = UnitComponent(unitModel: archerUnit);
     add(archerComponent);
-    archerComponent.position.add(Vector2(offsetX, offsetY));
     
     // Initialize card system
     currentPlayerCardPool = CardDatabase.getInitialPlayerCardPool();
