@@ -64,8 +64,8 @@ class PathfindingUtils {
       [-1, 0],  // Left (toward -x in screen)
       [0, 1],   // Lower-left diagonal
       [0, -1],  // Upper-right diagonal
-      [1, -1],  // Upper-right
-      [-1, 1],  // Lower-left
+      [1, 1],   // Bottom (Down)
+      [-1, -1], // Top (Up)
     ];
 
     for (final offset in offsets) {
