@@ -82,12 +82,14 @@ class IsometricTile extends PositionComponent with TapCallbacks {
       canvas.drawPath(path, highlightBorderPaint);
     }
 
-    // Draw border
-    final borderPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.3)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    canvas.drawPath(path, borderPaint);
+    // Draw border (skip for Brain Damage to keep it fully transparent)
+    if (tileModel.type != 'Brain Damage') {
+      final borderPaint = Paint()
+        ..color = Colors.black.withValues(alpha: 0.3)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0;
+      canvas.drawPath(path, borderPaint);
+    }
     
     canvas.restore();
   }

@@ -39,6 +39,14 @@ lib/
 - Tile types: Grass (walkable), Water (blocked), Building (blocked)
 - Custom polygon hit detection using cross-product edge testing
 
+### Positioning System
+- **Single Source of Truth**: `MyGame.getTilePosition(x, y)` returns the exact world position for any grid coordinate.
+- **Consistency**: All entities (units, projectiles, effects) use this method to ensure perfect alignment with tile centers.
+- **Rendering**: `IsometricTile` renders its hexagon centered on its position (using canvas translation), ensuring the visual center matches the logical center.
+- **Usage**:
+  - Initial placement: `position = game.getTilePosition(x, y)`
+  - Movement: `MoveToEffect(game.getTilePosition(newX, newY))`
+
 ### Unit System
 - Units use same `GridUtils.gridToScreen()` as tiles for perfect centering
 - Selection states: pulsing halo (selectable), static halo (selected)

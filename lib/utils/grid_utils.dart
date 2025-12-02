@@ -96,12 +96,12 @@ class GridUtils {
   /// For isometric hex, neighbors are at these relative positions
   List<(int, int)> getNeighbors(int x, int y) {
     return [
-      (x + 1, y),     // Right
-      (x - 1, y),     // Left
-      (x, y + 1),     // Lower-left
-      (x, y - 1),     // Upper-right
-      (x + 1, y - 1), // Upper-right diagonal
-      (x - 1, y + 1), // Lower-left diagonal
+      (x + 1, y),     // Right (Down-Right)
+      (x - 1, y),     // Left (Up-Left)
+      (x, y + 1),     // Lower-left (Down-Left)
+      (x, y - 1),     // Upper-right (Up-Right)
+      (x + 1, y + 1), // Bottom (Down)
+      (x - 1, y - 1), // Top (Up)
     ];
   }
 }
