@@ -34,6 +34,10 @@ class IsometricTile extends PositionComponent with TapCallbacks {
   void render(Canvas canvas) {
     super.render(canvas);
 
+    // Translate canvas to center of component so hex is drawn centered
+    canvas.save();
+    canvas.translate(size.x / 2, size.y / 2);
+
     // Get hex path from GridUtils (pointy-top orientation)
     final path = gridUtils.getHexPath();
 
@@ -84,6 +88,8 @@ class IsometricTile extends PositionComponent with TapCallbacks {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
     canvas.drawPath(path, borderPaint);
+    
+    canvas.restore();
   }
 
   void setHovered(bool isHovered) {
@@ -97,7 +103,8 @@ class IsometricTile extends PositionComponent with TapCallbacks {
   @override
   bool containsLocalPoint(Vector2 point) {
     // Use GridUtils for hit detection
-    return gridUtils.containsPoint(point);
+    // Adjust point to be relative to center (since GridUtils assumes 0,0 center)
+    return gridUtils.containsPoint(point - size / 2);
   }
 
   @override
