@@ -16,6 +16,13 @@ class UnitComponent extends PositionComponent with TapCallbacks {
   OpacityEffect? _pulseEffect;
   double _haloOpacity = 0.0;
   
+  // Halo color
+  Color _haloColor = Colors.white;
+  
+  void setHaloColor(Color color) {
+    _haloColor = color;
+  }
+  
   UnitComponent({
     required this.unitModel,
   }) : super(
@@ -109,14 +116,14 @@ class UnitComponent extends PositionComponent with TapCallbacks {
     // Draw halo if selectable or selected
     if (_isSelectable || _isSelectedForAction) {
       final haloPaint = Paint()
-        ..color = Colors.white.withValues(alpha: _haloOpacity * 0.6)
+        ..color = _haloColor.withValues(alpha: _haloOpacity * 0.6)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
 
       canvas.drawCircle(center, radius + 8, haloPaint);
 
       // Inner glow
       final innerGlowPaint = Paint()
-        ..color = Colors.white.withValues(alpha: _haloOpacity * 0.4)
+        ..color = _haloColor.withValues(alpha: _haloOpacity * 0.4)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
 
       canvas.drawCircle(center, radius + 4, innerGlowPaint);
@@ -126,11 +133,11 @@ class UnitComponent extends PositionComponent with TapCallbacks {
     Color unitColor;
     IconData iconData;
 
-    if (unitModel.name.toLowerCase() == 'knight') {
-      unitColor = const Color(0xFF4A90E2); // Blue
+    if (unitModel.name.toLowerCase() == 'manipulator') {
+      unitColor = const Color(0xFF00BCD4); // Teal
       iconData = Icons.shield;
-    } else if (unitModel.name.toLowerCase() == 'archer') {
-      unitColor = const Color(0xFF4CAF50); // Green
+    } else if (unitModel.name.toLowerCase() == 'infector') {
+      unitColor = const Color(0xFFFF9800); // Orange
       iconData = Icons.arrow_upward; // Arrow icon
     } else {
       unitColor = const Color(0xFF9E9E9E); // Gray fallback

@@ -63,7 +63,7 @@ class MyGame extends Forge2DGame {
     
     // If it's a move card, make units selectable
     if (card.cardModel.type.toLowerCase() == 'move') {
-      _setUnitsSelectable(true);
+      _setUnitsSelectable(true, _getCardColor(card.cardModel.type));
     }
   }
   
@@ -71,13 +71,14 @@ class MyGame extends Forge2DGame {
   void deselectCard() {
     selectedCard = null;
     selectedCardForExecution = null;
-    _setUnitsSelectable(false);
+    _setUnitsSelectable(false, Colors.white);
     _clearUnitSelection();
   }
 
   // Helper to set selectable state for all units
-  void _setUnitsSelectable(bool selectable) {
+  void _setUnitsSelectable(bool selectable, Color color) {
     children.whereType<UnitComponent>().forEach((unit) {
+      unit.setHaloColor(color);
       unit.setSelectable(selectable);
     });
   }
@@ -88,9 +89,18 @@ class MyGame extends Forge2DGame {
       selectedUnitForMovement!.setSelected(false);
       selectedUnitForMovement = null;
     }
-    // Clear tile highlights (to be implemented)
+    _clearTileHighlights();
   }
   
+  Color _getCardColor(String type) {
+    switch (type.toLowerCase()) {
+      case 'attack': return const Color(0xFFFF5252);
+      case 'move': return const Color(0xFF448AFF);
+      case 'defend': return const Color(0xFF69F0AE);
+      default: return const Color(0xFFFFD700);
+    }
+  }
+    
   // Handle unit selection for movement
   void selectUnitForMovement(UnitComponent unit) {
     // Only allow selection if a move card is active
@@ -129,7 +139,7 @@ class MyGame extends Forge2DGame {
     final reachableTiles = PathfindingUtils.calculateReachableTiles(
       startX: unit.unitModel.x,
       startY: unit.unitModel.y,
-      range: unit.unitModel.movement,
+      range: unit.unitModel.movementPoints,
       gridData: gridData,
     );
     
@@ -291,30 +301,28 @@ class MyGame extends Forge2DGame {
 
     // Create and add a demo unit at grid center
     final demoUnit = UnitModel(
-      name: 'Knight',
+      name: 'Manipulator',
       hp: 3,
       attackMode: 'Melee',
       damageValue: 2,
-      defense: 1,
       specialAbility: 'Shield Bash',
       x: knightSpawn.x,
       y: knightSpawn.y,
-      movement: 3,
+      movementPoints: 2,
     );
     final unitComponent = UnitComponent(unitModel: demoUnit);
     add(unitComponent);
 
     // Create and add an Archer unit at the left side
     final archerUnit = UnitModel(
-      name: 'Archer',
+      name: 'Infector',
       hp: 2,
       attackMode: 'Ranged',
       damageValue: 3,
-      defense: 0,
       specialAbility: 'Double Shot',
       x: archerSpawn.x,
       y: archerSpawn.y,
-      movement: 2,
+      movementPoints: 3,
     );
     final archerComponent = UnitComponent(unitModel: archerUnit);
     add(archerComponent);

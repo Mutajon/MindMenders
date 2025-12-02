@@ -9,11 +9,34 @@ class UnitInfoOverlay extends StatelessWidget {
     this.hoveredUnit,
   });
 
+  Color _getUnitColor(String name) {
+    if (name.toLowerCase() == 'infector') {
+      return const Color(0xFFFF9800); // Orange
+    }
+    if (name.toLowerCase() == 'manipulator') {
+      return const Color(0xFF00BCD4); // Teal
+    }
+    return const Color(0xFF9E9E9E); // Gray (Default)
+  }
+
+  IconData _getUnitIcon(String name) {
+    if (name.toLowerCase() == 'infector') {
+      return Icons.arrow_upward;
+    }
+    if (name.toLowerCase() == 'manipulator') {
+      return Icons.shield;
+    }
+    return Icons.person; // Default
+  }
+
   @override
   Widget build(BuildContext context) {
     if (hoveredUnit == null) {
       return const SizedBox.shrink();
     }
+
+    final unitColor = _getUnitColor(hoveredUnit!.name);
+    final unitIcon = _getUnitIcon(hoveredUnit!.name);
 
     return Positioned(
       left: 16,
@@ -27,7 +50,7 @@ class UnitInfoOverlay extends StatelessWidget {
             color: Colors.black.withValues(alpha: 0.85),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: const Color(0xFF4A90E2).withValues(alpha: 0.6),
+              color: unitColor.withValues(alpha: 0.6),
               width: 2,
             ),
             boxShadow: [
@@ -46,15 +69,15 @@ class UnitInfoOverlay extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4A90E2),
+                  color: unitColor,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: Colors.white.withValues(alpha: 0.3),
                     width: 1,
                   ),
                 ),
-                child: const Icon(
-                  Icons.shield,
+                child: Icon(
+                  unitIcon,
                   color: Colors.white,
                   size: 32,
                 ),
@@ -67,8 +90,8 @@ class UnitInfoOverlay extends StatelessWidget {
                 children: [
                   Text(
                     hoveredUnit!.name.toUpperCase(),
-                    style: const TextStyle(
-                      color: Color(0xFF4A90E2),
+                    style: TextStyle(
+                      color: unitColor,
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.2,
@@ -78,7 +101,7 @@ class UnitInfoOverlay extends StatelessWidget {
                   _buildStatRow(Icons.favorite, 'HP', hoveredUnit!.hp.toString()),
                   _buildStatRow(Icons.flash_on, 'Attack', hoveredUnit!.attackMode),
                   _buildStatRow(Icons.whatshot, 'Damage', hoveredUnit!.damageValue.toString()),
-                  _buildStatRow(Icons.shield_outlined, 'Defense', hoveredUnit!.defense.toString()),
+                  _buildStatRow(Icons.directions_walk, 'Movement', hoveredUnit!.movementPoints.toString()),
                   const SizedBox(height: 4),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
