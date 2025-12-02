@@ -11,12 +11,12 @@ class TileInfoOverlay extends StatelessWidget {
 
   Color _getTileColor(String type) {
     switch (type) {
-      case 'grass':
-        return const Color(0xFF4CAF50);
-      case 'water':
-        return const Color(0xFF2196F3);
-      case 'building':
-        return const Color(0xFF9E9E9E);
+      case 'Dendrite':
+        return const Color(0xFF808080); // Gray
+      case 'Neuron':
+        return const Color(0xFFFF00FF); // Fuchsia Purple
+      case 'Brain Damage':
+        return const Color(0xFF555555); // Dark Gray for UI visibility
       default:
         return const Color(0xFFBDBDBD);
     }
@@ -24,12 +24,12 @@ class TileInfoOverlay extends StatelessWidget {
 
   IconData _getTileIcon(String type) {
     switch (type) {
-      case 'grass':
-        return Icons.grass;
-      case 'water':
-        return Icons.water;
-      case 'building':
-        return Icons.apartment;
+      case 'Dendrite':
+        return Icons.linear_scale;
+      case 'Neuron':
+        return Icons.circle;
+      case 'Brain Damage':
+        return Icons.broken_image;
       default:
         return Icons.crop_square;
     }

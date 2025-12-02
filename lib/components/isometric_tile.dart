@@ -8,6 +8,7 @@ import '../utils/grid_utils.dart';
 class IsometricTile extends PositionComponent with TapCallbacks {
   final TileModel tileModel;
   final GridUtils gridUtils;
+  final Vector2 centeringOffset;
 
   bool _isHovered = false;
   bool _isMovementTarget = false;
@@ -15,6 +16,7 @@ class IsometricTile extends PositionComponent with TapCallbacks {
   IsometricTile({
     required this.tileModel,
     required this.gridUtils,
+    required this.centeringOffset,
   }) : super(
           size: Vector2(gridUtils.tileWidth, gridUtils.tileHeight),
           anchor: Anchor.center,
@@ -23,8 +25,9 @@ class IsometricTile extends PositionComponent with TapCallbacks {
   @override
   void onLoad() {
     super.onLoad();
-    // Use GridUtils for isometric positioning
-    position = gridUtils.gridToScreen(tileModel.x, tileModel.y);
+    // Apply both grid position and centering offset in onLoad
+    // so tile has final position before units read it
+    position = gridUtils.gridToScreen(tileModel.x, tileModel.y) + centeringOffset;
   }
 
   @override
@@ -37,14 +40,14 @@ class IsometricTile extends PositionComponent with TapCallbacks {
     // Choose color based on tile type
     Color fillColor;
     switch (tileModel.type) {
-      case 'grass':
-        fillColor = const Color(0xFF4CAF50);
+      case 'Dendrite':
+        fillColor = const Color(0xFF808080); // Gray
         break;
-      case 'water':
-        fillColor = const Color(0xFF2196F3);
+      case 'Brain Damage':
+        fillColor = Colors.transparent; // Transparent
         break;
-      case 'building':
-        fillColor = const Color(0xFF9E9E9E);
+      case 'Neuron':
+        fillColor = const Color(0xFFFF00FF); // Fuchsia Purple
         break;
       default:
         fillColor = const Color(0xFFBDBDBD);

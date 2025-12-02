@@ -15,7 +15,7 @@ class UnitComponent extends PositionComponent with TapCallbacks {
   // Effects
   OpacityEffect? _pulseEffect;
   double _haloOpacity = 0.0;
-
+  
   UnitComponent({
     required this.unitModel,
   }) : super(
@@ -26,12 +26,12 @@ class UnitComponent extends PositionComponent with TapCallbacks {
   @override
   void onLoad() {
     super.onLoad();
-    // Position from tile - tiles are the source of truth
+    // Position from tile - MyGame is the source of truth
     final game = findParent<MyGame>();
     if (game != null) {
-      final tile = game.getTileAt(unitModel.x, unitModel.y);
-      if (tile != null) {
-        position = tile.position.clone();
+      final pos = game.getTilePosition(unitModel.x, unitModel.y);
+      if (pos != null) {
+        position = pos;
       }
     }
   }
@@ -103,6 +103,8 @@ class UnitComponent extends PositionComponent with TapCallbacks {
     super.render(canvas);
 
     final radius = size.x / 2;
+    // Center of the component's bounding box (canvas origin is top-left)
+    final center = Offset(size.x / 2, size.y / 2);
 
     // Draw halo if selectable or selected
     if (_isSelectable || _isSelectedForAction) {
@@ -110,14 +112,14 @@ class UnitComponent extends PositionComponent with TapCallbacks {
         ..color = Colors.white.withValues(alpha: _haloOpacity * 0.6)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
 
-      canvas.drawCircle(Offset.zero, radius + 8, haloPaint);
+      canvas.drawCircle(center, radius + 8, haloPaint);
 
       // Inner glow
       final innerGlowPaint = Paint()
         ..color = Colors.white.withValues(alpha: _haloOpacity * 0.4)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
 
-      canvas.drawCircle(Offset.zero, radius + 4, innerGlowPaint);
+      canvas.drawCircle(center, radius + 4, innerGlowPaint);
     }
 
     // Determine color and icon based on unit type
@@ -139,20 +141,20 @@ class UnitComponent extends PositionComponent with TapCallbacks {
     final shadowPaint = Paint()
       ..color = Colors.black.withValues(alpha: 0.3)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-    canvas.drawCircle(const Offset(0, 2), radius, shadowPaint);
+    canvas.drawCircle(Offset(center.dx, center.dy + 2), radius, shadowPaint);
 
     // Main circle
     final circlePaint = Paint()
       ..color = unitColor
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset.zero, radius, circlePaint);
+    canvas.drawCircle(center, radius, circlePaint);
 
     // Border
     final borderPaint = Paint()
       ..color = _isSelectedForAction ? Colors.white : Colors.white.withValues(alpha: 0.8)
       ..style = PaintingStyle.stroke
       ..strokeWidth = _isSelectedForAction ? 3.0 : 2.0;
-    canvas.drawCircle(Offset.zero, radius, borderPaint);
+    canvas.drawCircle(center, radius, borderPaint);
 
     // Draw icon
     final textPainter = TextPainter(
@@ -169,15 +171,16 @@ class UnitComponent extends PositionComponent with TapCallbacks {
     textPainter.layout();
     textPainter.paint(
       canvas,
-      Offset(-textPainter.width / 2, -textPainter.height / 2),
+      Offset(center.dx - textPainter.width / 2, center.dy - textPainter.height / 2),
     );
   }
 
   @override
   bool containsLocalPoint(Vector2 point) {
-    // Check if point is inside the circle
+    // Check if point is inside the circle (centered in bounding box)
     final radius = size.x / 2;
-    return point.length <= radius;
+    final center = Vector2(size.x / 2, size.y / 2);
+    return (point - center).length <= radius;
   }
 
   @override
@@ -194,8 +197,8 @@ class UnitComponent extends PositionComponent with TapCallbacks {
     final game = findParent<MyGame>();
     if (game == null) return;
 
-    final targetTile = game.getTileAt(newX, newY);
-    if (targetTile == null) return;
+    final targetPos = game.getTilePosition(newX, newY);
+    if (targetPos == null) return;
 
     // Update model coordinates
     unitModel.x = newX;
@@ -204,7 +207,7 @@ class UnitComponent extends PositionComponent with TapCallbacks {
     // Animate movement with spring-like effect
     add(
       MoveToEffect(
-        targetTile.position.clone(),
+        targetPos,
         EffectController(
           duration: 0.6,
           curve: Curves.elasticOut, // Spring-like bounce

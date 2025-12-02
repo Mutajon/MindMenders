@@ -16,20 +16,31 @@ class GridData {
       (x) => List.generate(
         gridSize,
         (y) {
-          // Randomly assign tile types for variety
-          final types = [
-            {'type': 'grass', 'description': 'A patch of green grass'},
-            {'type': 'water', 'description': 'Clear blue water'},
-            {'type': 'building', 'description': 'A small structure'},
-          ];
-          final tileData = types[random.nextInt(types.length)];
+          final rand = random.nextDouble();
+          String type;
+          String description;
+          bool walkable;
+
+          if (rand < 0.7) {
+            type = 'Dendrite';
+            description = 'A conductive dendrite pathway';
+            walkable = true;
+          } else if (rand < 0.9) {
+            type = 'Neuron';
+            description = 'A processing neuron node';
+            walkable = false; // Buildings were not walkable
+          } else {
+            type = 'Brain Damage';
+            description = 'Damaged neural tissue';
+            walkable = false; // Water was not walkable
+          }
           
           return TileModel(
             x: x,
             y: y,
-            type: tileData['type']!,
-            description: tileData['description']!,
-            walkable: tileData['type'] == 'grass',
+            type: type,
+            description: description,
+            walkable: walkable,
           );
         },
       ),

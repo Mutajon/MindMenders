@@ -30,6 +30,14 @@ class MyGame extends Forge2DGame {
   // Get tile component at grid coordinates
   IsometricTile? getTileAt(int x, int y) => _tileComponents['$x,$y'];
   
+  // Get world position of a tile center at coordinates
+  Vector2? getTilePosition(int x, int y) {
+    final key = '$x,$y';
+    if (_tileComponents.containsKey(key)) {
+      return _tileComponents[key]!.position.clone();
+    }
+    return null;
+  }
   // Card system
   List<CardModel> currentPlayerCardPool = [];
   CardComponent? selectedCard;
@@ -233,15 +241,53 @@ class MyGame extends Forge2DGame {
           final tileComponent = IsometricTile(
             tileModel: tile,
             gridUtils: gridUtils,
+            centeringOffset: offset,
           );
           add(tileComponent);
-          // Apply centering offset
-          tileComponent.position.add(offset);
           // Store in lookup map
           _tileComponents['${tile.x},${tile.y}'] = tileComponent;
         }
       }
     }
+
+    // Find valid Dendrite tiles for units
+    TileModel? knightSpawn;
+    double minKnightDist = 999.0;
+    
+    // Find best spawn for Knight near (5,5)
+    for (int x = 0; x < gridData.gridSize; x++) {
+      for (int y = 0; y < gridData.gridSize; y++) {
+        final tile = gridData.getTileAt(x, y);
+        if (tile != null && tile.type == 'Dendrite') {
+           double d = ((x - 5) * (x - 5) + (y - 5) * (y - 5)).toDouble();
+           if (d < minKnightDist) {
+             minKnightDist = d;
+             knightSpawn = tile;
+           }
+        }
+      }
+    }
+
+    // Find best spawn for Archer near (0,5)
+    TileModel? archerSpawn;
+    double minArcherDist = 999.0;
+    
+    for (int x = 0; x < gridData.gridSize; x++) {
+      for (int y = 0; y < gridData.gridSize; y++) {
+        final tile = gridData.getTileAt(x, y);
+        if (tile != null && tile.type == 'Dendrite' && tile != knightSpawn) {
+           double d = ((x - 0) * (x - 0) + (y - 5) * (y - 5)).toDouble();
+           if (d < minArcherDist) {
+             minArcherDist = d;
+             archerSpawn = tile;
+           }
+        }
+      }
+    }
+    
+    // Fallback if something went wrong (shouldn't happen with 70% Dendrites)
+    knightSpawn ??= gridData.getTileAt(5, 5) ?? TileModel(x: 5, y: 5, type: 'Dendrite', description: 'Fallback', walkable: true);
+    archerSpawn ??= gridData.getTileAt(0, 5) ?? TileModel(x: 0, y: 5, type: 'Dendrite', description: 'Fallback', walkable: true);
 
     // Create and add a demo unit at grid center
     final demoUnit = UnitModel(
@@ -251,8 +297,8 @@ class MyGame extends Forge2DGame {
       damageValue: 2,
       defense: 1,
       specialAbility: 'Shield Bash',
-      x: 5,
-      y: 5,
+      x: knightSpawn.x,
+      y: knightSpawn.y,
       movement: 3,
     );
     final unitComponent = UnitComponent(unitModel: demoUnit);
@@ -266,14 +312,12 @@ class MyGame extends Forge2DGame {
       damageValue: 3,
       defense: 0,
       specialAbility: 'Double Shot',
-      x: 0,
-      y: 5,
+      x: archerSpawn.x,
+      y: archerSpawn.y,
       movement: 2,
     );
     final archerComponent = UnitComponent(unitModel: archerUnit);
     add(archerComponent);
-    
-    // Initialize card system
     currentPlayerCardPool = CardDatabase.getInitialPlayerCardPool();
     
     // Display cards at bottom of screen
