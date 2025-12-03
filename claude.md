@@ -47,6 +47,13 @@ lib/
     - Movement is executed to the end of the manually drawn path.
     - `MyGame` maintains the `_currentPath` state.
     - `GridUtils.isNeighbor` is used to validate incremental steps.
+- **Movement Visualization**:
+    - **Border**: A continuous, animated gradient border outlines the reachable area (including the unit's current tile).
+    - **Path**: A blue arrow follows the exact movement path.
+- **Tile Control**:
+    - Tiles have `controllable` and `alliance` properties.
+    - **Capture**: Units capture Neutral controllable tiles upon entering them.
+    - **Visuals**: Controlled tiles show a colored overlay (Blue for Menders, Red for AI).
 
 ## Positioning System
 - **Single Source of Truth**: `MyGame.getTilePosition(x, y)` returns the exact world position for any grid coordinate.

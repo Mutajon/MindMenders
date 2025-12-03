@@ -201,11 +201,21 @@ class UnitComponent extends PositionComponent with TapCallbacks {
   }
 
   // Move unit to new grid coordinates with animation
-  void moveTo(int newX, int newY, {List<TileModel>? path, double stepDuration = 0.3}) {
+  void moveTo(
+    int newX, 
+    int newY, 
+    {
+      List<TileModel>? path, 
+      double stepDuration = 0.3,
+      Function(TileModel)? onTileEntered,
+    }
+  ) {
     final game = findParent<MyGame>();
     if (game == null) return;
 
     // Update model coordinates immediately (logical position)
+    // NOTE: This might need to be deferred if we want logical position to sync with visual,
+    // but for now we keep it immediate for game state consistency.
     unitModel.x = newX;
     unitModel.y = newY;
 
@@ -215,41 +225,101 @@ class UnitComponent extends PositionComponent with TapCallbacks {
       double currentDelay = 0.0;
       
       List<TileModel> actualPath = path;
-      if (path.first.x == unitModel.x && path.first.y == unitModel.y) {
-        actualPath = path.sublist(1);
-      }
-
-      for (final tile in actualPath) {
+      // If path includes current position as first element, skip it
+      // We need to check against current position, not newX/newY
+      // But wait, unitModel.x/y were just updated.
+      // We should check against the *starting* position of the move.
+      // Assuming path[0] is start and path[last] is end.
+      
+      // If the first tile in path is where we currently are (visually), skip it
+      // We can check if path.first matches the unit's position BEFORE the move.
+      // But we just updated unitModel.
+      
+      // Let's rely on the path passed in. If it starts with current tile, skip it.
+      // The caller (MyGame) usually passes [start, ..., end].
+      
+      // We need to be careful about "skipping". If we skip, we don't animate to it.
+      // But we might still want to trigger onTileEntered for it? 
+      // Probably not, as we are already there.
+      
+      // Logic:
+      // 1. Filter path to only future tiles.
+      // 2. For each future tile, add MoveToEffect.
+      // 3. Add a callback effect *after* the move effect to trigger onTileEntered.
+      
+      // Since we can't easily chain effects with delays in a simple loop without a SequenceEffect,
+      // and SequenceEffect takes a list of effects.
+      
+      // Let's build a SequenceEffect.
+      
+      final List<Effect> sequenceSteps = [];
+      
+      // Check if first tile is current position (approx)
+      // We can use the game's getTilePosition to check distance
+      final currentPos = position.clone();
+      
+      print('Unit moving from $currentPos. Path length: ${actualPath.length}');
+      
+      for (int i = 0; i < actualPath.length; i++) {
+        final tile = actualPath[i];
         final targetPos = game.getTilePosition(tile.x, tile.y);
+        
         if (targetPos != null) {
-          moveEffects.add(
-            MoveToEffect(
+          final dist = targetPos.distanceTo(currentPos);
+          // Skip if we are already at this position (start tile)
+          if (dist < 1.0) {
+            print('Skipping start tile at $targetPos (dist: $dist)');
+            continue;
+          }
+          
+          print('Adding move step to $targetPos');
+          
+          sequenceSteps.add(
+            MoveEffect.to(
               targetPos,
               EffectController(
                 duration: stepDuration,
-                startDelay: currentDelay,
-                curve: Curves.linear, // Linear for smooth continuous movement
+                curve: Curves.linear,
               ),
+              onComplete: () {
+                print('Reached tile (${tile.x}, ${tile.y})');
+                onTileEntered?.call(tile);
+              },
             ),
           );
-          currentDelay += stepDuration;
         }
       }
       
-      // Add all effects
-      addAll(moveEffects);
+      if (sequenceSteps.isNotEmpty) {
+        print('Starting sequence with ${sequenceSteps.length} steps');
+        add(SequenceEffect(sequenceSteps));
+      } else {
+        print('No steps generated for path!');
+      }
+      
     } else {
       // Direct movement (fallback)
       final targetPos = game.getTilePosition(newX, newY);
       if (targetPos == null) return;
 
       add(
-        MoveToEffect(
+        MoveEffect.to(
           targetPos,
           EffectController(
             duration: 0.6,
             curve: Curves.elasticOut,
           ),
+          onComplete: () {
+            // Trigger callback for final tile
+             if (onTileEntered != null) {
+               // We need the TileModel for newX, newY
+               // This is a bit hacky as we don't have the tile object here easily without querying game
+               final tile = game.gridData.getTileAt(newX, newY);
+               if (tile != null) {
+                 onTileEntered(tile);
+               }
+             }
+          },
         ),
       );
     }

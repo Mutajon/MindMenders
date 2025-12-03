@@ -300,13 +300,27 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
       );
     }
     
+    // Capture alliance for callback since selectedUnitForMovement will be cleared
+    final unitAlliance = selectedUnitForMovement!.unitModel.alliance;
+    
     // Move unit along path
     selectedUnitForMovement!.moveTo(
       targetTile.x, 
       targetTile.y, 
       path: movePath,
       stepDuration: 0.3, // Default speed
+      onTileEntered: (tile) {
+        // Check for control change when entering a tile
+        if (tile.controllable && tile.alliance.toLowerCase() == 'neutral') {
+          tileControlChange(tile, unitAlliance);
+        }
+      },
     );
+    
+    // Immediate capture logic removed - handled by onTileEntered callback
+    // if (targetTile.controllable && targetTile.alliance.toLowerCase() == 'neutral') {
+    //   tileControlChange(targetTile, selectedUnitForMovement!.unitModel.alliance);
+    // }
     
     // Clear manual path
     _currentPath.clear();
@@ -321,6 +335,18 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
     
     // Clear state
     deselectCard();
+  }
+  
+  // Handle tile control changes
+  void tileControlChange(TileModel tile, String newAlliance) {
+    // Update data
+    tile.alliance = newAlliance;
+    
+    // Visual update is handled by IsometricTile.render checking the model
+    // But we might need to trigger a re-render if it's cached?
+    // Flame components re-render every frame by default, so modifying the model should be enough.
+    
+    print('Tile at (${tile.x}, ${tile.y}) captured by $newAlliance');
   }
   
   // Console command: Show discard pile
@@ -479,6 +505,15 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
         position: Vector2(cardX, cardY),
       );
       add(cardComponent);
+    }
+    
+    // Initialize control for starting units
+    // Capture tiles they are standing on
+    for (final unit in [unitComponent, archerComponent]) {
+      final tile = gridData.getTileAt(unit.unitModel.x, unit.unitModel.y);
+      if (tile != null && tile.controllable && tile.alliance.toLowerCase() == 'neutral') {
+        tileControlChange(tile, unit.unitModel.alliance);
+      }
     }
   }
 

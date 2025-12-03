@@ -67,6 +67,26 @@ class IsometricTile extends PositionComponent with TapCallbacks {
       ..color = fillColor
       ..style = PaintingStyle.fill;
     canvas.drawPath(path, paint);
+    
+    // Draw alliance overlay
+    if (tileModel.controllable) {
+      Color? allianceColor;
+      switch (tileModel.alliance.toLowerCase()) {
+        case 'menders':
+          allianceColor = const Color(0xFF448AFF).withValues(alpha: 0.3); // Blue
+          break;
+        case 'ai':
+          allianceColor = const Color(0xFFFF5252).withValues(alpha: 0.3); // Red
+          break;
+      }
+      
+      if (allianceColor != null) {
+        final alliancePaint = Paint()
+          ..color = allianceColor
+          ..style = PaintingStyle.fill;
+        canvas.drawPath(path, alliancePaint);
+      }
+    }
 
 
 
