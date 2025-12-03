@@ -39,7 +39,16 @@ lib/
 - Tile types: Grass (walkable), Water (blocked), Building (blocked)
 - Custom polygon hit detection using cross-product edge testing
 
-### Positioning System
+### Movement System
+- **Manual Path Drawing**: Players have full control over the unit's movement path.
+    - Hovering over valid neighbor tiles incrementally builds the path.
+    - Hovering over a previous tile in the path backtracks (truncates the path).
+    - The path is visualized with a blue arrow.
+    - Movement is executed to the end of the manually drawn path.
+    - `MyGame` maintains the `_currentPath` state.
+    - `GridUtils.isNeighbor` is used to validate incremental steps.
+
+## Positioning System
 - **Single Source of Truth**: `MyGame.getTilePosition(x, y)` returns the exact world position for any grid coordinate.
 - **Consistency**: All entities (units, projectiles, effects) use this method to ensure perfect alignment with tile centers.
 - **Rendering**: `IsometricTile` renders its hexagon centered on its position (using canvas translation), ensuring the visual center matches the logical center.

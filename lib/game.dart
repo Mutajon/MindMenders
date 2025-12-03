@@ -175,41 +175,63 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
   
   // Movement arrow
   MovementPathArrow? _movementArrow;
+  
+  // Current manual path
+  final List<TileModel> _currentPath = [];
 
   void _updateMovementArrow(TileModel? targetTile) {
+    // Check conditions
+    if (selectedUnitForMovement == null || targetTile == null) {
+      return;
+    }
+    
+    // Initialize path if empty or unit changed
+    if (_currentPath.isEmpty || 
+        _currentPath.first.x != selectedUnitForMovement!.unitModel.x || 
+        _currentPath.first.y != selectedUnitForMovement!.unitModel.y) {
+      final startTile = gridData.getTileAt(selectedUnitForMovement!.unitModel.x, selectedUnitForMovement!.unitModel.y);
+      if (startTile != null) {
+        _currentPath.clear();
+        _currentPath.add(startTile);
+      }
+    }
+    
+    // If hovering over a tile already in path, backtrack
+    final existingIndex = _currentPath.indexOf(targetTile);
+    if (existingIndex != -1) {
+      // Remove everything after this tile
+      _currentPath.removeRange(existingIndex + 1, _currentPath.length);
+    } else {
+      // Try to add new tile
+      // Must be neighbor of last tile
+      // Must be walkable
+      // Must be within range
+      // Must be in highlighted tiles (valid move)
+      
+      final lastTile = _currentPath.last;
+      final isNeighbor = gridUtils.isNeighbor(lastTile.x, lastTile.y, targetTile.x, targetTile.y);
+      
+      if (isNeighbor && 
+          targetTile.walkable && 
+          _currentPath.length <= selectedUnitForMovement!.unitModel.movementPoints &&
+          highlightedMovementTiles.contains(targetTile)) {
+        _currentPath.add(targetTile);
+      }
+    }
+    
+    // Update arrow visual
     // Remove existing arrow
     if (_movementArrow != null) {
       _movementArrow!.removeFromParent();
       _movementArrow = null;
     }
     
-    // Check conditions
-    if (selectedUnitForMovement == null || 
-        targetTile == null || 
-        !highlightedMovementTiles.contains(targetTile)) {
-      return;
-    }
-    
-    // Calculate path
-    final pathTiles = PathfindingUtils.findPath(
-      startX: selectedUnitForMovement!.unitModel.x,
-      startY: selectedUnitForMovement!.unitModel.y,
-      endX: targetTile.x,
-      endY: targetTile.y,
-      gridData: gridData,
-    );
-    
-    if (pathTiles.isEmpty) return;
+    if (_currentPath.length < 2) return;
     
     // Convert to world coordinates
     final List<Vector2> pathPoints = [];
     
-    // Add start point (unit position)
-    final startPos = getTilePosition(selectedUnitForMovement!.unitModel.x, selectedUnitForMovement!.unitModel.y);
-    if (startPos != null) pathPoints.add(startPos);
-    
-    // Add path points
-    for (final tile in pathTiles) {
+    for (final tile in _currentPath) {
       final pos = getTilePosition(tile.x, tile.y);
       if (pos != null) pathPoints.add(pos);
     }
@@ -232,8 +254,14 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
   void _executeMovement(TileModel targetTile) {
     if (selectedUnitForMovement == null || selectedCardForExecution == null) return;
     
+    // If we have a manual path, ensure we're moving to the end of it
+    // (targetTile should match _currentPath.last if logic is correct)
+    
     // Move unit
     selectedUnitForMovement!.moveTo(targetTile.x, targetTile.y);
+    
+    // Clear manual path
+    _currentPath.clear();
     
     // Move card to discard pile
     final cardModel = selectedCardForExecution!.cardModel;

@@ -104,4 +104,18 @@ class GridUtils {
       (x - 1, y - 1), // Top (Up)
     ];
   }
+  /// Check if two tiles are neighbors
+  bool isNeighbor(int x1, int y1, int x2, int y2) {
+    final dx = x2 - x1;
+    final dy = y2 - y1;
+    
+    // Check against the 6 valid neighbor offsets
+    // (1,0), (-1,0), (0,1), (0,-1), (1,1), (-1,-1)
+    return (dx == 1 && dy == 0) ||
+           (dx == -1 && dy == 0) ||
+           (dx == 0 && dy == 1) ||
+           (dx == 0 && dy == -1) ||
+           (dx == 1 && dy == 1) ||
+           (dx == -1 && dy == -1);
+  }
 }
