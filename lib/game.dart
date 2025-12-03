@@ -202,12 +202,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
       // Remove everything after this tile
       _currentPath.removeRange(existingIndex + 1, _currentPath.length);
     } else {
-      // Try to add new tile
-      // Must be neighbor of last tile
-      // Must be walkable
-      // Must be within range
-      // Must be in highlighted tiles (valid move)
-      
+      // Try to add new tile manually
       final lastTile = _currentPath.last;
       final isNeighbor = gridUtils.isNeighbor(lastTile.x, lastTile.y, targetTile.x, targetTile.y);
       
@@ -216,6 +211,24 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
           _currentPath.length <= selectedUnitForMovement!.unitModel.movementPoints &&
           highlightedMovementTiles.contains(targetTile)) {
         _currentPath.add(targetTile);
+      } else if (highlightedMovementTiles.contains(targetTile)) {
+        // If not a neighbor but valid target, auto-calculate shortest path
+        // This allows "snapping" to a new path if the user jumps the cursor
+        final newPath = PathfindingUtils.findPath(
+          startX: selectedUnitForMovement!.unitModel.x,
+          startY: selectedUnitForMovement!.unitModel.y,
+          endX: targetTile.x,
+          endY: targetTile.y,
+          gridData: gridData,
+        );
+        
+        if (newPath.isNotEmpty) {
+          _currentPath.clear();
+          // Add start tile manually as findPath returns path including start/end
+          // But we want to ensure consistency with our _currentPath structure
+          // findPath usually returns [start, ..., end]
+          _currentPath.addAll(newPath);
+        }
       }
     }
     
