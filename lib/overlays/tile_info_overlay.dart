@@ -117,6 +117,15 @@ class TileInfoOverlay extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                  const SizedBox(height: 2),
+                  Text(
+                    hoveredTile!.alliance,
+                    style: TextStyle(
+                      color: _getAllianceColor(hoveredTile!.alliance),
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -124,5 +133,16 @@ class TileInfoOverlay extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Color _getAllianceColor(String alliance) {
+    switch (alliance.toLowerCase()) {
+      case 'menders':
+        return Colors.blue;
+      case 'ai':
+        return Colors.red;
+      default: // neutral
+        return Colors.grey;
+    }
   }
 }

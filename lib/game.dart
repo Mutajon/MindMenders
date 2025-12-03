@@ -10,6 +10,7 @@ import 'components/isometric_tile.dart';
 import 'components/unit_component.dart';
 import 'components/card_component.dart';
 import 'components/movement_path_arrow.dart';
+import 'components/movement_border_component.dart';
 import 'data/card_database.dart';
 import 'utils/pathfinding_utils.dart';
 import 'utils/grid_utils.dart';
@@ -146,17 +147,30 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
     
     highlightedMovementTiles = reachableTiles;
     
-    // Highlight tiles visually
-    for (final tile in highlightedMovementTiles) {
-      // Find component for this tile
-      final tileComponent = children.whereType<IsometricTile>().firstWhere(
-        (c) => c.tileModel == tile,
-      );
-      tileComponent.setMovementTarget(true);
+    // Create a set for the border that includes the unit's current tile
+    final borderTiles = highlightedMovementTiles.toSet();
+    final currentTile = gridData.getTileAt(unit.unitModel.x, unit.unitModel.y);
+    if (currentTile != null) {
+      borderTiles.add(currentTile);
     }
+    
+    // Update border component
+    _movementBorder.updateTiles(borderTiles);
+    
+    // Highlight tiles visually - OLD METHOD REMOVED
+    // for (final tile in highlightedMovementTiles) {
+    //   // Find component for this tile
+    //   final tileComponent = children.whereType<IsometricTile>().firstWhere(
+    //     (c) => c.tileModel == tile,
+    //   );
+    //   tileComponent.setMovementTarget(true);
+    // }
   }
   
   void _clearTileHighlights() {
+    // Clear border
+    _movementBorder.updateTiles({});
+
     for (final tile in highlightedMovementTiles) {
       final tileComponent = children.whereType<IsometricTile>().firstWhere(
         (c) => c.tileModel == tile,
@@ -175,6 +189,9 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
   
   // Movement arrow
   MovementPathArrow? _movementArrow;
+  
+  // Movement border
+  final MovementBorderComponent _movementBorder = MovementBorderComponent();
   
   // Current manual path
   final List<TileModel> _currentPath = [];
@@ -328,6 +345,9 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
     camera.viewfinder.zoom = 1.0;
     camera.viewfinder.anchor = Anchor.topLeft;
     camera.viewfinder.position = Vector2.zero();
+    
+    // Add movement border component
+    add(_movementBorder);
     
     // Handle unit selection for movement
     // NOTE: The following block seems to be intended for a tap/click handler,

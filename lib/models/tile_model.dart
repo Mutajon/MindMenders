@@ -4,6 +4,8 @@ class TileModel {
   final String type;
   final String description;
   final bool walkable;
+  final bool controllable;
+  final String alliance;
 
   TileModel({
     required this.x,
@@ -11,5 +13,7 @@ class TileModel {
     required this.type,
     required this.description,
     this.walkable = false,
+    this.controllable = false,
+    this.alliance = 'neutral',
   });
 }

@@ -30,6 +30,7 @@ class GridData {
           type: 'Dendrite',
           description: 'A conductive dendrite pathway',
           walkable: true,
+          controllable: true,
         ),
       ),
     );
