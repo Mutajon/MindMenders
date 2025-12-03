@@ -9,11 +9,12 @@ import 'models/card_model.dart';
 import 'components/isometric_tile.dart';
 import 'components/unit_component.dart';
 import 'components/card_component.dart';
+import 'components/movement_path_arrow.dart';
 import 'data/card_database.dart';
 import 'utils/pathfinding_utils.dart';
 import 'utils/grid_utils.dart';
 
-class MyGame extends Forge2DGame {
+class MyGame extends Forge2DGame with MouseMovementDetector {
   late GridData gridData;
   late GridUtils gridUtils;
   TileModel? hoveredTile;
@@ -164,8 +165,63 @@ class MyGame extends Forge2DGame {
       tileComponent.setMovementTarget(false);
     }
     highlightedMovementTiles.clear();
+    
+    // Clear arrow
+    if (_movementArrow != null) {
+      _movementArrow!.removeFromParent();
+      _movementArrow = null;
+    }
   }
   
+  // Movement arrow
+  MovementPathArrow? _movementArrow;
+
+  void _updateMovementArrow(TileModel? targetTile) {
+    // Remove existing arrow
+    if (_movementArrow != null) {
+      _movementArrow!.removeFromParent();
+      _movementArrow = null;
+    }
+    
+    // Check conditions
+    if (selectedUnitForMovement == null || 
+        targetTile == null || 
+        !highlightedMovementTiles.contains(targetTile)) {
+      return;
+    }
+    
+    // Calculate path
+    final pathTiles = PathfindingUtils.findPath(
+      startX: selectedUnitForMovement!.unitModel.x,
+      startY: selectedUnitForMovement!.unitModel.y,
+      endX: targetTile.x,
+      endY: targetTile.y,
+      gridData: gridData,
+    );
+    
+    if (pathTiles.isEmpty) return;
+    
+    // Convert to world coordinates
+    final List<Vector2> pathPoints = [];
+    
+    // Add start point (unit position)
+    final startPos = getTilePosition(selectedUnitForMovement!.unitModel.x, selectedUnitForMovement!.unitModel.y);
+    if (startPos != null) pathPoints.add(startPos);
+    
+    // Add path points
+    for (final tile in pathTiles) {
+      final pos = getTilePosition(tile.x, tile.y);
+      if (pos != null) pathPoints.add(pos);
+    }
+    
+    // Create and add arrow
+    _movementArrow = MovementPathArrow(
+      pathPoints: pathPoints,
+      color: const Color(0xFF448AFF), // Blue to match move card
+    );
+    add(_movementArrow!);
+  }
+
   // Handle tile tap from IsometricTile
   void handleTileTap(TileModel tile) {
     if (selectedUnitForMovement != null && highlightedMovementTiles.contains(tile)) {
@@ -398,6 +454,9 @@ class MyGame extends Forge2DGame {
           }
         }
       }
+      
+      // Update movement arrow
+      _updateMovementArrow(hoveredTile);
     }
   }
   
