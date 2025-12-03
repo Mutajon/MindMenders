@@ -3,6 +3,7 @@ import 'package:flame/effects.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import '../models/unit_model.dart';
+import '../models/tile_model.dart';
 import '../game.dart';
 
 class UnitComponent extends PositionComponent with TapCallbacks {
@@ -200,27 +201,58 @@ class UnitComponent extends PositionComponent with TapCallbacks {
   }
 
   // Move unit to new grid coordinates with animation
-  void moveTo(int newX, int newY) {
+  void moveTo(int newX, int newY, {List<TileModel>? path, double stepDuration = 0.3}) {
     final game = findParent<MyGame>();
     if (game == null) return;
 
-    final targetPos = game.getTilePosition(newX, newY);
-    if (targetPos == null) return;
-
-    // Update model coordinates
+    // Update model coordinates immediately (logical position)
     unitModel.x = newX;
     unitModel.y = newY;
 
-    // Animate movement with spring-like effect
-    add(
-      MoveToEffect(
-        targetPos,
-        EffectController(
-          duration: 0.6,
-          curve: Curves.elasticOut, // Spring-like bounce
+    if (path != null && path.isNotEmpty) {
+      // Create a sequence of moves
+      final List<Effect> moveEffects = [];
+      double currentDelay = 0.0;
+      
+      List<TileModel> actualPath = path;
+      if (path.first.x == unitModel.x && path.first.y == unitModel.y) {
+        actualPath = path.sublist(1);
+      }
+
+      for (final tile in actualPath) {
+        final targetPos = game.getTilePosition(tile.x, tile.y);
+        if (targetPos != null) {
+          moveEffects.add(
+            MoveToEffect(
+              targetPos,
+              EffectController(
+                duration: stepDuration,
+                startDelay: currentDelay,
+                curve: Curves.linear, // Linear for smooth continuous movement
+              ),
+            ),
+          );
+          currentDelay += stepDuration;
+        }
+      }
+      
+      // Add all effects
+      addAll(moveEffects);
+    } else {
+      // Direct movement (fallback)
+      final targetPos = game.getTilePosition(newX, newY);
+      if (targetPos == null) return;
+
+      add(
+        MoveToEffect(
+          targetPos,
+          EffectController(
+            duration: 0.6,
+            curve: Curves.elasticOut,
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
 }
 

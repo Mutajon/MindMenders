@@ -270,8 +270,26 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
     // If we have a manual path, ensure we're moving to the end of it
     // (targetTile should match _currentPath.last if logic is correct)
     
-    // Move unit
-    selectedUnitForMovement!.moveTo(targetTile.x, targetTile.y);
+    List<TileModel> movePath = List.from(_currentPath);
+    
+    // If manual path is empty or invalid for this target, calculate shortest path
+    if (movePath.isEmpty || movePath.last != targetTile) {
+      movePath = PathfindingUtils.findPath(
+        startX: selectedUnitForMovement!.unitModel.x,
+        startY: selectedUnitForMovement!.unitModel.y,
+        endX: targetTile.x,
+        endY: targetTile.y,
+        gridData: gridData,
+      );
+    }
+    
+    // Move unit along path
+    selectedUnitForMovement!.moveTo(
+      targetTile.x, 
+      targetTile.y, 
+      path: movePath,
+      stepDuration: 0.3, // Default speed
+    );
     
     // Clear manual path
     _currentPath.clear();
