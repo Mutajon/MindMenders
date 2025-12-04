@@ -7,11 +7,20 @@ class GridData {
 
   final int neuronCount;
   final int brainDamageCount;
+  final int memoryCount;
+
+  final List<Point<int>>? neuronCoordinates;
+  final List<Point<int>>? brainDamageCoordinates;
+  final List<Point<int>>? memoryCoordinates;
 
   GridData({
     this.gridSize = 10, 
     this.neuronCount = 10,
     this.brainDamageCount = 5,
+    this.memoryCount = 0,
+    this.neuronCoordinates,
+    this.brainDamageCoordinates,
+    this.memoryCoordinates,
   }) {
     _initializeGrid();
   }
@@ -35,71 +44,143 @@ class GridData {
       ),
     );
 
-    // 2. Place Brain Damage (Fixed count, no edges)
-    int placedBD = 0;
-    int attempts = 0;
-    const maxAttempts = 1000;
-
-    while (placedBD < brainDamageCount && attempts < maxAttempts) {
-      attempts++;
-      // Exclude edges
-      final x = random.nextInt(gridSize - 2) + 1;
-      final y = random.nextInt(gridSize - 2) + 1;
-
-      if (tiles[x][y].type != 'Dendrite') continue;
-
-      tiles[x][y] = TileModel(
-        x: x,
-        y: y,
-        type: 'Brain Damage',
-        description: 'Damaged neural tissue',
-        walkable: false,
-      );
-      placedBD++;
-    }
-
-    // 3. Place Neurons (Fixed count, no edges, non-touching)
-    int placedNeurons = 0;
-    attempts = 0;
-
-    while (placedNeurons < neuronCount && attempts < maxAttempts) {
-      attempts++;
-      // Exclude edges
-      final x = random.nextInt(gridSize - 2) + 1;
-      final y = random.nextInt(gridSize - 2) + 1;
-
-      // Must be Dendrite (don't overwrite Brain Damage or existing Neuron)
-      if (tiles[x][y].type != 'Dendrite') continue;
-
-      // Check neighbors for existing Neurons
-      bool touchingNeuron = false;
-      // Axial hex neighbors (corrected for isometric projection)
-      final neighbors = [
-        [x + 1, y], [x - 1, y],
-        [x, y + 1], [x, y - 1],
-        [x + 1, y + 1], [x - 1, y - 1]
-      ];
-
-      for (final n in neighbors) {
-        final nx = n[0];
-        final ny = n[1];
-        if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize) {
-          if (tiles[nx][ny].type == 'Neuron') {
-            touchingNeuron = true;
-            break;
-          }
+    // 2. Place Brain Damage
+    if (brainDamageCoordinates != null && brainDamageCoordinates!.isNotEmpty) {
+      for (final p in brainDamageCoordinates!) {
+        if (p.x >= 0 && p.x < gridSize && p.y >= 0 && p.y < gridSize) {
+          tiles[p.x][p.y] = TileModel(
+            x: p.x,
+            y: p.y,
+            type: 'Brain Damage',
+            description: 'Damaged neural tissue',
+            walkable: false,
+          );
         }
       }
+    } else {
+      // Random placement
+      int placedBD = 0;
+      int attempts = 0;
+      const maxAttempts = 1000;
 
-      if (!touchingNeuron) {
+      while (placedBD < brainDamageCount && attempts < maxAttempts) {
+        attempts++;
+        // Exclude edges
+        final x = random.nextInt(gridSize - 2) + 1;
+        final y = random.nextInt(gridSize - 2) + 1;
+
+        if (tiles[x][y].type != 'Dendrite') continue;
+
         tiles[x][y] = TileModel(
           x: x,
           y: y,
-          type: 'Neuron',
-          description: 'A processing neuron node',
+          type: 'Brain Damage',
+          description: 'Damaged neural tissue',
           walkable: false,
         );
-        placedNeurons++;
+        placedBD++;
+      }
+    }
+    
+    // 3. Place Memory Tiles
+    if (memoryCoordinates != null && memoryCoordinates!.isNotEmpty) {
+      for (final p in memoryCoordinates!) {
+        if (p.x >= 0 && p.x < gridSize && p.y >= 0 && p.y < gridSize) {
+          tiles[p.x][p.y] = TileModel(
+            x: p.x,
+            y: p.y,
+            type: 'Memory',
+            description: 'A memory storage unit',
+            walkable: false, // Not walkable
+            controllable: true,
+          );
+        }
+      }
+    } else {
+      // Random placement
+      int placedMemory = 0;
+      int attempts = 0;
+      const maxAttempts = 1000;
+
+      while (placedMemory < memoryCount && attempts < maxAttempts) {
+        attempts++;
+        // Exclude edges
+        final x = random.nextInt(gridSize - 2) + 1;
+        final y = random.nextInt(gridSize - 2) + 1;
+
+        if (tiles[x][y].type != 'Dendrite') continue;
+
+        tiles[x][y] = TileModel(
+          x: x,
+          y: y,
+          type: 'Memory',
+          description: 'A memory storage unit',
+          walkable: false, // Not walkable
+          controllable: true,
+        );
+        placedMemory++;
+      }
+    }
+
+    // 4. Place Neurons
+    if (neuronCoordinates != null && neuronCoordinates!.isNotEmpty) {
+      for (final p in neuronCoordinates!) {
+        if (p.x >= 0 && p.x < gridSize && p.y >= 0 && p.y < gridSize) {
+          // Check for existing type? Assuming coordinates are valid and don't overlap
+          tiles[p.x][p.y] = TileModel(
+            x: p.x,
+            y: p.y,
+            type: 'Neuron',
+            description: 'A processing neuron node',
+            walkable: false,
+          );
+        }
+      }
+    } else {
+      // Random placement
+      int placedNeurons = 0;
+      int attempts = 0;
+      const maxAttempts = 1000;
+
+      while (placedNeurons < neuronCount && attempts < maxAttempts) {
+        attempts++;
+        // Exclude edges
+        final x = random.nextInt(gridSize - 2) + 1;
+        final y = random.nextInt(gridSize - 2) + 1;
+
+        // Must be Dendrite
+        if (tiles[x][y].type != 'Dendrite') continue;
+
+        // Check neighbors for existing Neurons
+        bool touchingNeuron = false;
+        // Axial hex neighbors (corrected for isometric projection)
+        final neighbors = [
+          [x + 1, y], [x - 1, y],
+          [x, y + 1], [x, y - 1],
+          [x + 1, y + 1], [x - 1, y - 1]
+        ];
+
+        for (final n in neighbors) {
+          final nx = n[0];
+          final ny = n[1];
+          if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize) {
+            if (tiles[nx][ny].type == 'Neuron') {
+              touchingNeuron = true;
+              break;
+            }
+          }
+        }
+
+        if (!touchingNeuron) {
+          tiles[x][y] = TileModel(
+            x: x,
+            y: y,
+            type: 'Neuron',
+            description: 'A processing neuron node',
+            walkable: false,
+          );
+          placedNeurons++;
+        }
       }
     }
     

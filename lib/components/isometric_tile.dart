@@ -53,6 +53,9 @@ class IsometricTile extends PositionComponent with TapCallbacks {
       case 'Neuron':
         fillColor = const Color(0xFFFF00FF); // Fuchsia Purple
         break;
+      case 'Memory':
+        fillColor = const Color(0xFFFFF59D); // Light Yellow
+        break;
       default:
         fillColor = const Color(0xFFBDBDBD);
     }

@@ -16,6 +16,8 @@ import 'components/movement_border_component.dart';
 import 'data/card_database.dart';
 import 'utils/pathfinding_utils.dart';
 import 'utils/grid_utils.dart';
+import 'data/level_database.dart';
+import 'models/level_model.dart';
 
 class MyGame extends Forge2DGame with MouseMovementDetector {
   late GridData gridData;
@@ -398,6 +400,9 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
     // Add movement border component
     add(_movementBorder);
     
+    // Load Test Level
+    final level = LevelDatabase.getLevel('test_level');
+    
     // Handle unit selection for movement
     // NOTE: The following block seems to be intended for a tap/click handler,
     // not for the onLoad method. It also uses undefined variables `gridX` and `gridY`.
@@ -422,7 +427,15 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
     
     // Initialize GridUtils and grid data
     gridUtils = GridUtils(tileWidth: 64.0, tileHeight: 32.0);
-    gridData = GridData(gridSize: 10);
+    gridData = GridData(
+      gridSize: level.gridSize,
+      neuronCount: level.neuronTilesCount,
+      brainDamageCount: level.brainDamageTilesCount,
+      memoryCount: level.memoryTilesCount,
+      neuronCoordinates: level.neuronCoordinates,
+      brainDamageCoordinates: level.brainDamageCoordinates,
+      memoryCoordinates: level.memoryCoordinates,
+    );
 
     // Calculate centering offset using GridUtils
     final offset = gridUtils.getCenteringOffset(size, gridData.gridSize);
@@ -441,6 +454,35 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
           // Store in lookup map
           _tileComponents['${tile.x},${tile.y}'] = tileComponent;
         }
+      }
+    }
+    
+    // Apply Enemy Control
+    if (level.enemyControlledCoordinates != null && level.enemyControlledCoordinates!.isNotEmpty) {
+      for (final p in level.enemyControlledCoordinates!) {
+        final tile = gridData.getTileAt(p.x, p.y);
+        if (tile != null && tile.controllable) {
+           tileControlChange(tile, 'AI');
+        }
+      }
+    } else {
+      // Random percentage logic
+      final controllableTiles = <TileModel>[];
+      for (int x = 0; x < gridData.gridSize; x++) {
+        for (int y = 0; y < gridData.gridSize; y++) {
+          final tile = gridData.getTileAt(x, y);
+          if (tile != null && tile.controllable) {
+            controllableTiles.add(tile);
+          }
+        }
+      }
+      
+      controllableTiles.shuffle();
+      final enemyTileCount = (controllableTiles.length * (level.enemyControlledPercentage / 100.0)).round(); // User provided 30 for 30%? Or 0.3?
+      // User provided 30 in the diff. So divide by 100.
+      
+      for (int i = 0; i < enemyTileCount; i++) {
+        tileControlChange(controllableTiles[i], 'AI');
       }
     }
 
@@ -479,7 +521,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
       }
     }
     
-    // Fallback if something went wrong (shouldn't happen with 70% Dendrites)
+    // Fallback if something went wrong
     knightSpawn ??= gridData.getTileAt(5, 5) ?? TileModel(x: 5, y: 5, type: 'Dendrite', description: 'Fallback', walkable: true);
     archerSpawn ??= gridData.getTileAt(0, 5) ?? TileModel(x: 0, y: 5, type: 'Dendrite', description: 'Fallback', walkable: true);
 
@@ -510,10 +552,81 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
     );
     final archerComponent = UnitComponent(unitModel: archerUnit);
     add(archerComponent);
-    add(archerComponent);
+    
+    // Spawn Enemies
+    final occupiedTiles = {knightSpawn, archerSpawn};
+    
+    if (level.startingEnemyCoordinates != null && level.startingEnemyCoordinates!.isNotEmpty) {
+       // Spawn at specific coords
+       for (int i = 0; i < level.startingEnemyCoordinates!.length; i++) {
+          final p = level.startingEnemyCoordinates![i];
+          final enemyType = i < level.startingEnemyTypes.length ? level.startingEnemyTypes[i] : level.startingEnemyTypes[0];
+          
+          final spawnTile = gridData.getTileAt(p.x, p.y);
+          if (spawnTile != null) {
+             occupiedTiles.add(spawnTile);
+             final enemyUnit = UnitModel(
+              name: enemyType,
+              hp: 2,
+              attackMode: 'Melee',
+              damageValue: 1,
+              specialAbility: 'None',
+              x: spawnTile.x,
+              y: spawnTile.y,
+              movementPoints: 2,
+              alliance: 'AI',
+            );
+            add(UnitComponent(unitModel: enemyUnit));
+          }
+       }
+    } else {
+      // Random placement
+      final possibleTiles = <TileModel>[];
+      for (int x = 0; x < gridData.gridSize; x++) {
+        for (int y = 0; y < gridData.gridSize; y++) {
+          final tile = gridData.getTileAt(x, y);
+          if (tile != null && tile.walkable && !occupiedTiles.contains(tile)) {
+             possibleTiles.add(tile);
+          }
+        }
+      }
+      
+      // Sort to prefer AI tiles
+      possibleTiles.sort((a, b) {
+        if (a.alliance == 'AI' && b.alliance != 'AI') return -1;
+        if (a.alliance != 'AI' && b.alliance == 'AI') return 1;
+        return 0;
+      });
+      
+      // Shuffle within groups (AI and Neutral) to ensure randomness
+      final aiTiles = possibleTiles.where((t) => t.alliance == 'AI').toList()..shuffle();
+      final neutralTiles = possibleTiles.where((t) => t.alliance != 'AI').toList()..shuffle();
+      final spawnCandidates = [...aiTiles, ...neutralTiles];
+      
+      for (int i = 0; i < level.startingEnemiesCount; i++) {
+        if (i >= spawnCandidates.length) break;
+        
+        final spawnTile = spawnCandidates[i];
+        final enemyType = level.startingEnemyTypes[i % level.startingEnemyTypes.length];
+        
+        occupiedTiles.add(spawnTile);
+        
+        final enemyUnit = UnitModel(
+          name: enemyType,
+          hp: 2,
+          attackMode: 'Melee',
+          damageValue: 1,
+          specialAbility: 'None',
+          x: spawnTile.x,
+          y: spawnTile.y,
+          movementPoints: 2,
+          alliance: 'AI',
+        );
+        add(UnitComponent(unitModel: enemyUnit));
+      }
+    }
     
     // Initialize Player Deck
-    // 12 Basic Attack, 5 Basic Defend, 13 Basic Move
     deck.clear();
     final masterPool = CardDatabase.masterCardPool;
     final basicAttack = masterPool.firstWhere((c) => c.title == 'Basic Attack');
