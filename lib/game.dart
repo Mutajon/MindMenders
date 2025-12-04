@@ -1,5 +1,6 @@
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
+import 'package:flame/effects.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
 import 'models/grid_data.dart';
@@ -9,6 +10,7 @@ import 'models/card_model.dart';
 import 'components/isometric_tile.dart';
 import 'components/unit_component.dart';
 import 'components/card_component.dart';
+import 'components/deck_component.dart';
 import 'components/movement_path_arrow.dart';
 import 'components/movement_border_component.dart';
 import 'data/card_database.dart';
@@ -22,6 +24,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
   UnitModel? hoveredUnit;
   final Function(TileModel?)? onTileHoverChange;
   final Function(UnitModel?)? onUnitHoverChange;
+  final Function(DeckType?, bool)? onDeckHoverChange;
   
   // Keep track of the currently highlighted tile component to update its visual state
   IsometricTile? _highlightedComponent;
@@ -50,7 +53,27 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
   List<TileModel> highlightedMovementTiles = [];
   List<CardModel> discardPile = [];
 
-  MyGame({this.onTileHoverChange, this.onUnitHoverChange}) : super(gravity: Vector2(0, 10.0));
+  MyGame({
+    this.onTileHoverChange, 
+    this.onUnitHoverChange,
+    this.onDeckHoverChange,
+  }) : super(gravity: Vector2(0, 10.0));
+
+  // ... (existing methods)
+
+  // Handle deck hover from DeckComponent
+  void onDeckHover(DeckType type, bool isHovered) {
+    onDeckHoverChange?.call(type, isHovered);
+  }
+
+  // ... (existing methods)
+
+
+
+  // Deck Components
+  late DeckComponent _deckComponent;
+  late DeckComponent _discardComponent;
+  List<CardModel> deck = [];
 
   // Handle card selection (only one card can be selected at a time)
   void selectCard(CardComponent card) {
@@ -487,25 +510,46 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
     );
     final archerComponent = UnitComponent(unitModel: archerUnit);
     add(archerComponent);
-    currentPlayerCardPool = CardDatabase.getInitialPlayerCardPool();
+    add(archerComponent);
     
-    // Display cards at bottom of screen
+    // Initialize Player Deck
+    // 12 Basic Attack, 5 Basic Defend, 13 Basic Move
+    deck.clear();
+    final masterPool = CardDatabase.masterCardPool;
+    final basicAttack = masterPool.firstWhere((c) => c.title == 'Basic Attack');
+    final basicDefend = masterPool.firstWhere((c) => c.title == 'Basic Defend');
+    final basicMove = masterPool.firstWhere((c) => c.title == 'Basic Move');
+    
+    for (int i = 0; i < 12; i++) deck.add(basicAttack.copyWith(id: 'p_attack_$i'));
+    for (int i = 0; i < 5; i++) deck.add(basicDefend.copyWith(id: 'p_defend_$i'));
+    for (int i = 0; i < 13; i++) deck.add(basicMove.copyWith(id: 'p_move_$i'));
+    
+    // Shuffle deck
+    deck.shuffle();
+    
+    // Clear hand (start with 0 cards)
+    currentPlayerCardPool.clear();
+    
+    // Add Deck Component (Draw Pile)
     final screenWidth = size.x;
     final screenHeight = size.y;
-    final cardSpacing = 10.0;
-    final totalCardWidth = (CardComponent.cardWidth * currentPlayerCardPool.length) + 
-                          (cardSpacing * (currentPlayerCardPool.length - 1));
-    final startX = (screenWidth - totalCardWidth) / 2 + (CardComponent.cardWidth / 2);
-    final cardY = screenHeight - CardComponent.cardHeight / 2 - 20;
+    _deckComponent = DeckComponent(
+      position: Vector2(screenWidth - 20, screenHeight - 20),
+      type: DeckType.draw,
+    );
+    add(_deckComponent);
     
-    for (int i = 0; i < currentPlayerCardPool.length; i++) {
-      final cardX = startX + (i * (CardComponent.cardWidth + cardSpacing));
-      final cardComponent = CardComponent(
-        cardModel: currentPlayerCardPool[i],
-        position: Vector2(cardX, cardY),
-      );
-      add(cardComponent);
-    }
+    // Add Discard Pile Component
+    _discardComponent = DeckComponent(
+      position: Vector2(screenWidth - 90, screenHeight - 20),
+      type: DeckType.discard,
+    );
+    add(_discardComponent);
+    
+    // Start first turn with delay
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      newTurn();
+    });
     
     // Initialize control for starting units
     // Capture tiles they are standing on
@@ -514,6 +558,122 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
       if (tile != null && tile.controllable && tile.alliance.toLowerCase() == 'neutral') {
         tileControlChange(tile, unit.unitModel.alliance);
       }
+    }
+  }
+
+
+
+  void newTurn() {
+    print('Starting new turn...');
+    drawCards(5);
+  }
+
+  void drawCards(int amount) {
+    if (deck.isEmpty) return;
+    
+    final drawCount = amount.clamp(0, deck.length);
+    final drawnCards = deck.take(drawCount).toList();
+    deck.removeRange(0, drawCount);
+    
+    currentPlayerCardPool.addAll(drawnCards);
+    
+    _animateDrawCards(drawnCards);
+  }
+
+  void _animateDrawCards(List<CardModel> newCards) {
+    final screenWidth = size.x;
+    final screenHeight = size.y;
+    final cardSpacing = 10.0;
+    
+    // Calculate final positions for ALL cards in hand (including existing ones)
+    // But for now, let's just append or re-layout.
+    // Re-layouting existing cards is better.
+    
+    // Remove existing card components from parent (we'll re-add them or update them)
+    // Actually, simpler to just add new ones and then run a layout pass.
+    
+    // Let's create components for new cards at Deck position
+    final deckPos = _deckComponent.position.clone();
+    // Adjust for anchor (Deck is bottomRight, Card is center)
+    // Deck pos is bottom right corner.
+    final startPos = deckPos - Vector2(30, 45); // Approx center of deck
+    
+    final newComponents = <CardComponent>[];
+    
+    for (var card in newCards) {
+      final component = CardComponent(
+        cardModel: card,
+        position: startPos.clone(),
+      );
+      add(component);
+      newComponents.add(component);
+    }
+    
+    // Now animate all cards to their hand positions
+    _layoutHand(newComponents);
+  }
+
+  void _layoutHand(List<CardComponent> newCards) {
+    final screenWidth = size.x;
+    final screenHeight = size.y;
+    final cardSpacing = 10.0;
+    
+    // Get all card components in hand (existing + new)
+    // We need to match currentPlayerCardPool order
+    // Existing components:
+    final existingComponents = children.whereType<CardComponent>().where((c) => !newCards.contains(c) && c != selectedCardForExecution).toList();
+    
+    // This is tricky because children order might not match pool order.
+    // Let's rebuild the list of components based on pool.
+    // Or just layout what we have.
+    
+    final allHandComponents = [...existingComponents, ...newCards];
+    
+    final totalCardWidth = (CardComponent.cardWidth * allHandComponents.length) + 
+                          (cardSpacing * (allHandComponents.length - 1));
+    final startX = (screenWidth - totalCardWidth) / 2 + (CardComponent.cardWidth / 2);
+    final cardY = screenHeight - CardComponent.cardHeight / 2 - 20;
+    
+    for (int i = 0; i < allHandComponents.length; i++) {
+      final component = allHandComponents[i];
+      final targetX = startX + (i * (CardComponent.cardWidth + cardSpacing));
+      final targetPos = Vector2(targetX, cardY);
+      
+      // Delay based on index for "quick succession"
+      // Only delay new cards? Or all?
+      // User said "animate them in quick succession... from the deck icon".
+      // Existing cards should probably just slide.
+      
+      double delay = 0.0;
+      if (newCards.contains(component)) {
+        final newIndex = newCards.indexOf(component);
+        delay = newIndex * 0.1;
+      }
+      
+      component.add(
+        MoveEffect.to(
+          targetPos,
+          EffectController(
+            duration: 0.5,
+            startDelay: delay,
+            curve: Curves.elasticOut,
+          ),
+          onComplete: () {
+            component.setBasePosition(targetPos);
+          },
+        ),
+      );
+      
+      // Update base position for hover effects
+      // We need to access _basePosition, but it's private.
+      // CardComponent needs a method to update base position.
+      // For now, we rely on the fact that CardComponent updates _basePosition in onLoad?
+      // No, onLoad runs once.
+      // We should update CardComponent to allow updating base position.
+      // But wait, CardComponent uses _basePosition for hover.
+      // If we move it with an effect, _basePosition remains old.
+      // We need to update _basePosition after move?
+      // Or make _basePosition public/setter.
     }
   }
 

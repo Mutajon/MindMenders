@@ -9,6 +9,8 @@ import 'models/tile_model.dart';
 import 'models/unit_model.dart';
 import 'overlays/tile_info_overlay.dart';
 import 'overlays/unit_info_overlay.dart';
+import 'components/deck_component.dart';
+import 'overlays/deck_info_overlay.dart';
 
 void main() {
   runApp(const MyApp());
@@ -20,7 +22,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Flame Game',
+      title: 'Mind Control',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
@@ -43,6 +45,7 @@ class GameScreen extends StatefulWidget {
 class _GameScreenState extends State<GameScreen> {
   TileModel? hoveredTile;
   UnitModel? hoveredUnit;
+  DeckType? hoveredDeckType;
   late MyGame game;
 
   @override
@@ -59,15 +62,17 @@ class _GameScreenState extends State<GameScreen> {
           hoveredUnit = unit;
         });
       },
+      onDeckHoverChange: (type, isHovered) {
+        setState(() {
+          hoveredDeckType = isHovered ? type : null;
+        });
+      },
     );
     
-    // Expose game instance to browser console for debug commands
     _exposeToConsole();
   }
   
-  
   void _exposeToConsole() {
-    // Expose commands to browser console using dart:js
     js.context['showPlayerCards'] = () {
       game.showPlayerCards();
     };
@@ -97,6 +102,7 @@ class _GameScreenState extends State<GameScreen> {
           ),
           UnitInfoOverlay(hoveredUnit: hoveredUnit),
           TileInfoOverlay(hoveredTile: hoveredTile),
+          DeckInfoOverlay(hoveredDeckType: hoveredDeckType, game: game),
         ],
       ),
     );

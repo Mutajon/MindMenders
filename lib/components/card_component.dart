@@ -31,6 +31,10 @@ class CardComponent extends PositionComponent with HoverCallbacks, TapCallbacks 
     super.onLoad();
     _basePosition = position.clone();
   }
+  
+  void setBasePosition(Vector2 newPos) {
+    _basePosition = newPos;
+  }
 
   @override
   void onHoverEnter() {
@@ -107,10 +111,10 @@ class CardComponent extends PositionComponent with HoverCallbacks, TapCallbacks 
     
     switch (cardModel.type.toLowerCase()) {
       case 'attack':
-        cardBaseColor = const Color(0xFF5D2E2E); // Reddish dark
-        iconColor = const Color(0xFFFF5252); // Bright red
-        borderColor = const Color(0xFF8B0000); // Dark red border
-        haloColor = const Color(0xFFFF5252); // Red halo
+        cardBaseColor = const Color(0xFF4A148C); // Purple dark
+        iconColor = const Color(0xFFE040FB); // Bright purple
+        borderColor = const Color(0xFF311B92); // Deep purple border
+        haloColor = const Color(0xFFE040FB); // Purple halo
         cardIcon = Icons.flash_on;
         break;
       case 'move':
