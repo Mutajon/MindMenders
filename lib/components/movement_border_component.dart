@@ -8,11 +8,12 @@ import '../game.dart';
 class MovementBorderComponent extends PositionComponent with HasGameRef<MyGame> {
   final Set<TileModel> _tiles = {};
   final Path _borderPath = Path();
-  
+  final Color baseColor;
+
   // Animation state
   double _animationTime = 0.0;
   
-  MovementBorderComponent() : super(priority: 10); // Render above tiles
+  MovementBorderComponent({this.baseColor = const Color(0xFF448AFF)}) : super(priority: 10); // Render above tiles
 
   void updateTiles(Set<TileModel> tiles) {
     _tiles.clear();
@@ -107,13 +108,17 @@ class MovementBorderComponent extends PositionComponent with HasGameRef<MyGame> 
     final startOffset = Offset.lerp(const Offset(0, 0), const Offset(50, 50), t)!;
     final endOffset = Offset.lerp(const Offset(200, 200), const Offset(250, 250), t)!;
     
+    // Create variations of the base color for the gradient
+    final color1 = baseColor;
+    final color2 = HSVColor.fromColor(baseColor).withHue((HSVColor.fromColor(baseColor).hue + 20) % 360).toColor();
+    
     paint.shader = ui.Gradient.linear(
       startOffset,
       endOffset,
       [
-        const Color(0xFF448AFF), // Blue
-        const Color(0xFF00BCD4), // Cyan
-        const Color(0xFF448AFF), // Blue
+        color1,
+        color2,
+        color1,
       ],
       [0.0, 0.5, 1.0],
       TileMode.mirror,
@@ -127,7 +132,7 @@ class MovementBorderComponent extends PositionComponent with HasGameRef<MyGame> 
       ..strokeWidth = 6.0
       ..strokeCap = StrokeCap.round
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4)
-      ..color = const Color(0xFF448AFF).withValues(alpha: 0.5);
+      ..color = baseColor.withValues(alpha: 0.5);
       
     canvas.drawPath(_borderPath, glowPaint);
   }

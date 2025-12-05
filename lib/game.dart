@@ -3,6 +3,7 @@ import 'package:flame/events.dart';
 import 'package:flame/effects.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'models/grid_data.dart';
 import 'models/tile_model.dart';
 import 'models/unit_model.dart';
@@ -19,7 +20,7 @@ import 'utils/grid_utils.dart';
 import 'data/level_database.dart';
 import 'models/level_model.dart';
 
-class MyGame extends Forge2DGame with MouseMovementDetector {
+class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, SecondaryTapDetector {
   late GridData gridData;
   late GridUtils gridUtils;
   TileModel? hoveredTile;
@@ -60,6 +61,25 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
     this.onUnitHoverChange,
     this.onDeckHoverChange,
   }) : super(gravity: Vector2(0, 10.0));
+  
+  // Input Handling
+  @override
+  KeyEventResult onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
+    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+      if (selectedCard != null) {
+        deselectCard();
+        return KeyEventResult.handled;
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  void onSecondaryTapDown(TapDownInfo info) {
+    if (selectedCard != null) {
+      deselectCard();
+    }
+  }
 
   // ... (existing methods)
 
@@ -88,18 +108,21 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
     selectedCard = card;
     selectedCardForExecution = card;
     
-    // If it's a move card, make units selectable
+    // If it's a move card, make units selectable and highlight their zones
     if (card.cardModel.type.toLowerCase() == 'move') {
       _setUnitsSelectable(true, _getCardColor(card.cardModel.type));
+      _highlightAllUnitMovementZones();
     }
   }
   
   // Deselect current card
   void deselectCard() {
+    selectedCard?.deselect();
     selectedCard = null;
     selectedCardForExecution = null;
     _setUnitsSelectable(false, Colors.white);
     _clearUnitSelection();
+    _clearAllUnitBorders();
   }
 
   // Helper to set selectable state for all units
@@ -136,69 +159,106 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
     // Only allow selecting Menders units
     if (unit.unitModel.alliance != 'Menders') return;
     
-    // Clear previous tile highlights
-    _clearTileHighlights();
-    
-    // Deselect previous unit if any
-    if (selectedUnitForMovement != null) {
-      selectedUnitForMovement!.setSelected(false);
-      selectedUnitForMovement!.setSelectable(false); // Hide halo
+    // Toggle Logic
+    if (selectedUnitForMovement == unit) {
+        // Unselect (Toggle OFF)
+        unit.setSelected(false);
+        selectedUnitForMovement = null;
+        
+        // Reshow all borders
+         _unitBorders.forEach((u, border) {
+             if (!border.isMounted) add(border);
+         });
+         
+        // Clear active highlighted tiles for interaction
+        highlightedMovementTiles.clear();
+        
+    } else {
+        // Select (Toggle ON / Switch)
+        
+        // Deselect previous
+        if (selectedUnitForMovement != null) {
+          selectedUnitForMovement!.setSelected(false);
+        }
+        
+        selectedUnitForMovement = unit;
+        unit.setSelected(true);
+        
+        // Hide all borders except this one
+         _unitBorders.forEach((u, border) {
+             if (u == unit) {
+                 if (!border.isMounted) add(border);
+             } else {
+                 if (border.isMounted) border.removeFromParent();
+             }
+         });
+         
+        // Set highlighted tiles for interaction
+        // We need to re-fetch the tiles corresponding to this unit we computed earlier
+        // Or re-compute. Re-computing is safer to ensure sync.
+        _updateHighlightedTilesFromBorder(unit);
     }
-    
-    // Hide halos from all other units (but keep them clickable)
-    children.whereType<UnitComponent>().forEach((u) {
-      if (u != unit) {
-        u.setSelected(false);
-        u.setSelectable(false);
-      }
-    });
-    
-    // Select the new unit (show static halo)
-    selectedUnitForMovement = unit;
-    unit.setSelected(true);
-    
-    // Calculate reachable tiles
-    _calculateAndHighlightMovementTiles(unit);
   }
   
-  void _calculateAndHighlightMovementTiles(UnitComponent unit) {
-    // Clear previous highlights
-    _clearTileHighlights();
-    
-    // Use pathfinding to find reachable tiles
+  void _highlightAllUnitMovementZones() {
+      _clearAllUnitBorders();
+      
+      final menders = children.whereType<UnitComponent>().where((u) => u.unitModel.alliance == 'Menders').toList();
+      int index = 0;
+      
+      for (final unit in menders) {
+          // Calculate reachable tiles
+          final reachableTiles = PathfindingUtils.calculateReachableTiles(
+              startX: unit.unitModel.x,
+              startY: unit.unitModel.y,
+              range: unit.unitModel.movementPoints,
+              gridData: gridData,
+            );
+            
+         // Generate color (variations of blue)
+         // Base: 0xFF448AFF. Hue shift or lightness shift.
+         final baseBlue = HSVColor.fromColor(const Color(0xFF448AFF));
+         final newColor = baseBlue.withHue((baseBlue.hue + (index * 15)) % 360).toColor();
+         
+         final border = MovementBorderComponent(baseColor: newColor);
+         add(border);
+         
+         // Create borderset
+         final borderTiles = reachableTiles.toSet();
+         final currentTile = gridData.getTileAt(unit.unitModel.x, unit.unitModel.y);
+         if (currentTile != null) borderTiles.add(currentTile);
+         
+         border.updateTiles(borderTiles);
+         
+         _unitBorders[unit] = border;
+         index++;
+      }
+  }
+  
+  void _updateHighlightedTilesFromBorder(UnitComponent unit) {
+     highlightedMovementTiles.clear();
+     // Re-calc
     final reachableTiles = PathfindingUtils.calculateReachableTiles(
       startX: unit.unitModel.x,
       startY: unit.unitModel.y,
       range: unit.unitModel.movementPoints,
       gridData: gridData,
     );
-    
     highlightedMovementTiles = reachableTiles;
-    
-    // Create a set for the border that includes the unit's current tile
-    final borderTiles = highlightedMovementTiles.toSet();
-    final currentTile = gridData.getTileAt(unit.unitModel.x, unit.unitModel.y);
-    if (currentTile != null) {
-      borderTiles.add(currentTile);
-    }
-    
-    // Update border component
-    _movementBorder.updateTiles(borderTiles);
-    
-    // Highlight tiles visually - OLD METHOD REMOVED
-    // for (final tile in highlightedMovementTiles) {
-    //   // Find component for this tile
-    //   final tileComponent = children.whereType<IsometricTile>().firstWhere(
-    //     (c) => c.tileModel == tile,
-    //   );
-    //   tileComponent.setMovementTarget(true);
-    // }
+  }
+  
+  void _clearAllUnitBorders() {
+      _unitBorders.values.forEach((b) => b.removeFromParent());
+      _unitBorders.clear();
+  }
+  
+  void _calculateAndHighlightMovementTiles(UnitComponent unit) {
+      // Deprecated in favor of _highlightAllUnitMovementZones, but if needed for single update:
+      // We can update just this unit's border in the map.
   }
   
   void _clearTileHighlights() {
-    // Clear border
-    _movementBorder.updateTiles({});
-
+    // Don't clear borders here, only interaction highlights
     for (final tile in highlightedMovementTiles) {
       final tileComponent = children.whereType<IsometricTile>().firstWhere(
         (c) => c.tileModel == tile,
@@ -218,8 +278,8 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
   // Movement arrow
   MovementPathArrow? _movementArrow;
   
-  // Movement border
-  final MovementBorderComponent _movementBorder = MovementBorderComponent();
+  // Movement border map
+  final Map<UnitComponent, MovementBorderComponent> _unitBorders = {};
   
   // Current manual path
   final List<TileModel> _currentPath = [];
@@ -309,6 +369,16 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
     }
   }
   
+  // Check if a tile is occupied by any unit
+  bool isTileOccupied(int x, int y) {
+    for (final component in children.whereType<UnitComponent>()) {
+      if (component.unitModel.x == x && component.unitModel.y == y) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   void _executeMovement(TileModel targetTile) {
     if (selectedUnitForMovement == null || selectedCardForExecution == null) return;
     
@@ -338,17 +408,40 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
       path: movePath,
       stepDuration: 0.3, // Default speed
       onTileEntered: (tile) {
-        // Check for control change when entering a tile
-        if (tile.controllable && tile.alliance.toLowerCase() == 'neutral') {
-          tileControlChange(tile, unitAlliance);
+        if (!tile.controllable) return;
+
+        // Current tile logic:
+        // 1. If Neutral, capture it.
+        // 2. If Opposite Team, capture it (splash effect trigger).
+        
+        bool captured = false;
+        
+        if (tile.alliance.toLowerCase() == 'neutral') {
+            tileControlChange(tile, unitAlliance);
+            captured = true;
+        } else if (tile.alliance != unitAlliance) {
+            // Entered an opposing tile
+            tileControlChange(tile, unitAlliance);
+            captured = true;
+            
+            // Trigger Splash Capture on neighbors
+            final neighbors = gridUtils.getNeighbors(tile.x, tile.y);
+            for (final p in neighbors) {
+                final neighbor = gridData.getTileAt(p.$1, p.$2);
+                if (neighbor != null && 
+                    neighbor.controllable && 
+                    neighbor.alliance != unitAlliance && 
+                    neighbor.alliance.toLowerCase() != 'neutral') {
+                    
+                    // Found an opposing neighbor. Check if occupied.
+                    if (!isTileOccupied(neighbor.x, neighbor.y)) {
+                         tileControlChange(neighbor, unitAlliance);
+                    }
+                }
+            }
         }
       },
     );
-    
-    // Immediate capture logic removed - handled by onTileEntered callback
-    // if (targetTile.controllable && targetTile.alliance.toLowerCase() == 'neutral') {
-    //   tileControlChange(targetTile, selectedUnitForMovement!.unitModel.alliance);
-    // }
     
     // Clear manual path
     _currentPath.clear();
@@ -364,16 +457,11 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
     // Clear state
     deselectCard();
   }
-  
+
   // Handle tile control changes
   void tileControlChange(TileModel tile, String newAlliance) {
     // Update data
     tile.alliance = newAlliance;
-    
-    // Visual update is handled by IsometricTile.render checking the model
-    // But we might need to trigger a re-render if it's cached?
-    // Flame components re-render every frame by default, so modifying the model should be enough.
-    
     print('Tile at (${tile.x}, ${tile.y}) captured by $newAlliance');
   }
   
@@ -400,8 +488,8 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
     camera.viewfinder.anchor = Anchor.topLeft;
     camera.viewfinder.position = Vector2.zero();
     
-    // Add movement border component
-    add(_movementBorder);
+    // Add movement border component - REMOVED (Handled dynamically)
+    // add(_movementBorder);
     
     // Load Test Level
     final level = LevelDatabase.getLevel('test_level');
