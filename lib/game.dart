@@ -104,7 +104,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
 
   // Helper to set selectable state for all units
   void _setUnitsSelectable(bool selectable, Color color) {
-    children.whereType<UnitComponent>().forEach((unit) {
+    children.whereType<UnitComponent>().where((unit) => unit.unitModel.alliance == 'Menders').forEach((unit) {
       unit.setHaloColor(color);
       unit.setSelectable(selectable);
     });
@@ -132,6 +132,9 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
   void selectUnitForMovement(UnitComponent unit) {
     // Only allow selection if a move card is active
     if (selectedCardForExecution?.cardModel.type.toLowerCase() != 'move') return;
+
+    // Only allow selecting Menders units
+    if (unit.unitModel.alliance != 'Menders') return;
     
     // Clear previous tile highlights
     _clearTileHighlights();
@@ -457,31 +460,93 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
       }
     }
     
-    // Apply Enemy Control
-    if (level.enemyControlledCoordinates != null && level.enemyControlledCoordinates!.isNotEmpty) {
-      for (final p in level.enemyControlledCoordinates!) {
-        final tile = gridData.getTileAt(p.x, p.y);
+    // Apply Enemy Control based on Strategy
+    final controllableTiles = <TileModel>[];
+    for (int x = 0; x < gridData.gridSize; x++) {
+      for (int y = 0; y < gridData.gridSize; y++) {
+        final tile = gridData.getTileAt(x, y);
         if (tile != null && tile.controllable) {
-           tileControlChange(tile, 'AI');
+          controllableTiles.add(tile);
         }
       }
-    } else {
-      // Random percentage logic
-      final controllableTiles = <TileModel>[];
-      for (int x = 0; x < gridData.gridSize; x++) {
-        for (int y = 0; y < gridData.gridSize; y++) {
-          final tile = gridData.getTileAt(x, y);
-          if (tile != null && tile.controllable) {
-            controllableTiles.add(tile);
+    }
+    
+    final enemyTileCount = (controllableTiles.length * (level.enemyControlledPercentage / 100.0)).round();
+    
+    // Sort controllableTiles based on strategy
+    switch (level.enemyControlledTilesStartingPosition.toLowerCase()) {
+      case 'top':
+        // (0,0) is top. Sort by sum of coordinates (x+y) ascending.
+        controllableTiles.sort((a, b) => (a.x + a.y).compareTo(b.x + b.y));
+        break;
+      case 'bottom':
+        // (Max,Max) is bottom. Sort by sum of coordinates descending.
+        controllableTiles.sort((a, b) => (b.x + b.y).compareTo(a.x + a.y));
+        break;
+      case 'left':
+        // (0, Max) is left. Sort by difference (x-y) ascending.
+        controllableTiles.sort((a, b) => (a.x - a.y).compareTo(b.x - b.y));
+        break;
+      case 'right':
+        // (Max, 0) is right. Sort by difference (x-y) descending.
+        controllableTiles.sort((a, b) => (b.x - b.y).compareTo(a.x - a.y));
+        break;
+      case 'neurons':
+        // Find all neurons
+        final neurons = <TileModel>[];
+        for (int x = 0; x < gridData.gridSize; x++) {
+          for (int y = 0; y < gridData.gridSize; y++) {
+            final t = gridData.getTileAt(x, y);
+            if (t != null && t.type == 'Neuron') neurons.add(t);
           }
         }
-      }
-      
-      controllableTiles.shuffle();
-      final enemyTileCount = (controllableTiles.length * (level.enemyControlledPercentage / 100.0)).round(); // User provided 30 for 30%? Or 0.3?
-      // User provided 30 in the diff. So divide by 100.
-      
-      for (int i = 0; i < enemyTileCount; i++) {
+        // Sort by min distance to any neuron
+        controllableTiles.sort((a, b) {
+          double minDistA = 999999;
+          for (final n in neurons) {
+            final d = (a.x - n.x) * (a.x - n.x) + (a.y - n.y) * (a.y - n.y);
+            if (d < minDistA) minDistA = d.toDouble();
+          }
+          double minDistB = 999999;
+          for (final n in neurons) {
+            final d = (b.x - n.x) * (b.x - n.x) + (b.y - n.y) * (b.y - n.y);
+            if (d < minDistB) minDistB = d.toDouble();
+          }
+          return minDistA.compareTo(minDistB);
+        });
+        break;
+      case 'memories':
+        // Find all memories
+        final memories = <TileModel>[];
+        for (int x = 0; x < gridData.gridSize; x++) {
+          for (int y = 0; y < gridData.gridSize; y++) {
+            final t = gridData.getTileAt(x, y);
+            if (t != null && t.type == 'Memory') memories.add(t);
+          }
+        }
+        // Sort by min distance to any memory
+        controllableTiles.sort((a, b) {
+          double minDistA = 999999;
+          for (final n in memories) {
+            final d = (a.x - n.x) * (a.x - n.x) + (a.y - n.y) * (a.y - n.y);
+            if (d < minDistA) minDistA = d.toDouble();
+          }
+          double minDistB = 999999;
+          for (final n in memories) {
+            final d = (b.x - n.x) * (b.x - n.x) + (b.y - n.y) * (b.y - n.y);
+            if (d < minDistB) minDistB = d.toDouble();
+          }
+          return minDistA.compareTo(minDistB);
+        });
+        break;
+      default:
+        // Default top
+        controllableTiles.sort((a, b) => (a.x + a.y).compareTo(b.x + b.y));
+    }
+    
+    // Take top N
+    for (int i = 0; i < enemyTileCount; i++) {
+      if (i < controllableTiles.length) {
         tileControlChange(controllableTiles[i], 'AI');
       }
     }
@@ -574,7 +639,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
               x: spawnTile.x,
               y: spawnTile.y,
               movementPoints: 2,
-              alliance: 'AI',
+              alliance: 'Mother',
             );
             add(UnitComponent(unitModel: enemyUnit));
           }
@@ -620,7 +685,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector {
           x: spawnTile.x,
           y: spawnTile.y,
           movementPoints: 2,
-          alliance: 'AI',
+          alliance: 'Mother',
         );
         add(UnitComponent(unitModel: enemyUnit));
       }

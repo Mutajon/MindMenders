@@ -17,6 +17,8 @@ class TileInfoOverlay extends StatelessWidget {
         return const Color(0xFFFF00FF); // Fuchsia Purple
       case 'Brain Damage':
         return const Color(0xFF555555); // Dark Gray for UI visibility
+      case 'Memory':
+        return Colors.yellow;
       default:
         return const Color(0xFFBDBDBD);
     }
@@ -30,6 +32,8 @@ class TileInfoOverlay extends StatelessWidget {
         return Icons.circle;
       case 'Brain Damage':
         return Icons.broken_image;
+      case 'Memory':
+        return Icons.memory;
       default:
         return Icons.crop_square;
     }
@@ -118,13 +122,25 @@ class TileInfoOverlay extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    hoveredTile!.alliance,
-                    style: TextStyle(
-                      color: _getAllianceColor(hoveredTile!.alliance),
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Control: ',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontSize: 10,
+                        ),
+                      ),
+                      Text(
+                        _getAllianceDisplayName(hoveredTile!.alliance),
+                        style: TextStyle(
+                          color: _getAllianceColor(hoveredTile!.alliance),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -135,11 +151,24 @@ class TileInfoOverlay extends StatelessWidget {
     );
   }
 
+  String _getAllianceDisplayName(String alliance) {
+    switch (alliance.toLowerCase()) {
+      case 'menders':
+        return 'Menders';
+      case 'ai':
+      case 'mother':
+        return 'Mother';
+      default:
+        return 'Neutral';
+    }
+  }
+
   Color _getAllianceColor(String alliance) {
     switch (alliance.toLowerCase()) {
       case 'menders':
         return Colors.blue;
       case 'ai':
+      case 'mother':
         return Colors.red;
       default: // neutral
         return Colors.grey;

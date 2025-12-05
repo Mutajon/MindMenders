@@ -134,15 +134,26 @@ class UnitComponent extends PositionComponent with TapCallbacks {
     Color unitColor;
     IconData iconData;
 
+    // Determine icon based on unit type
     if (unitModel.name.toLowerCase() == 'manipulator') {
-      unitColor = const Color(0xFF00BCD4); // Teal
       iconData = Icons.shield;
     } else if (unitModel.name.toLowerCase() == 'infector') {
-      unitColor = const Color(0xFFFF9800); // Orange
-      iconData = Icons.arrow_upward; // Arrow icon
+      iconData = Icons.arrow_upward;
+    } else if (unitModel.name.toLowerCase() == 'sweeper') {
+      iconData = Icons.cleaning_services;
+    } else if (unitModel.name.toLowerCase() == 'devourer') {
+      iconData = Icons.dangerous;
+    } else {
+      iconData = Icons.person;
+    }
+
+    // Determine color based on alliance
+    if (unitModel.alliance == 'Mother') {
+      unitColor = const Color(0xFFEF5350); // Red
+    } else if (unitModel.alliance == 'Menders') {
+      unitColor = const Color(0xFF42A5F5); // Blue
     } else {
       unitColor = const Color(0xFF9E9E9E); // Gray fallback
-      iconData = Icons.person;
     }
 
     // Shadow

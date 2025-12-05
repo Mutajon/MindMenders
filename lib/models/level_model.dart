@@ -17,7 +17,10 @@ class LevelModel {
   final List<Point<int>>? brainDamageCoordinates;
   final List<Point<int>>? memoryCoordinates;
   final List<Point<int>>? startingEnemyCoordinates;
-  final List<Point<int>>? enemyControlledCoordinates;
+  
+  // Strategy for enemy controlled tiles placement
+  // Valid values: 'top', 'bottom', 'left', 'right', 'neurons', 'memories'
+  final String enemyControlledTilesStartingPosition;
 
   const LevelModel({
     required this.id,
@@ -34,6 +37,6 @@ class LevelModel {
     this.brainDamageCoordinates,
     this.memoryCoordinates,
     this.startingEnemyCoordinates,
-    this.enemyControlledCoordinates,
+    this.enemyControlledTilesStartingPosition = 'top',
   });
 }

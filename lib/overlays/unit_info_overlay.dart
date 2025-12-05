@@ -9,24 +9,24 @@ class UnitInfoOverlay extends StatelessWidget {
     this.hoveredUnit,
   });
 
-  Color _getUnitColor(String name) {
-    if (name.toLowerCase() == 'infector') {
-      return const Color(0xFFFF9800); // Orange
+  Color _getUnitColor(UnitModel unit) {
+    if (unit.alliance == 'Mother') {
+      return const Color(0xFFEF5350); // Red
     }
-    if (name.toLowerCase() == 'manipulator') {
-      return const Color(0xFF00BCD4); // Teal
+    if (unit.alliance == 'Menders') {
+      return const Color(0xFF42A5F5); // Blue
     }
     return const Color(0xFF9E9E9E); // Gray (Default)
   }
 
   IconData _getUnitIcon(String name) {
-    if (name.toLowerCase() == 'infector') {
-      return Icons.arrow_upward;
+    switch (name.toLowerCase()) {
+      case 'infector': return Icons.arrow_upward;
+      case 'manipulator': return Icons.shield;
+      case 'sweeper': return Icons.cleaning_services;
+      case 'devourer': return Icons.dangerous;
+      default: return Icons.person;
     }
-    if (name.toLowerCase() == 'manipulator') {
-      return Icons.shield;
-    }
-    return Icons.person; // Default
   }
 
   @override
@@ -35,7 +35,7 @@ class UnitInfoOverlay extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final unitColor = _getUnitColor(hoveredUnit!.name);
+    final unitColor = _getUnitColor(hoveredUnit!);
     final unitIcon = _getUnitIcon(hoveredUnit!.name);
 
     return Positioned(

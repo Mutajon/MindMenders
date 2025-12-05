@@ -12,7 +12,8 @@ class LevelDatabase {
       memoryTilesCount: 2,
       startingEnemiesCount: 2,
       startingEnemyTypes: ['Sweeper', 'Devourer'],
-      enemyControlledPercentage: 30, // Currently 0 in test setup
+      enemyControlledPercentage: 30,
+      enemyControlledTilesStartingPosition: 'top',
     ),
   ];
 
