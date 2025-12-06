@@ -112,6 +112,13 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     if (card.cardModel.type.toLowerCase() == 'move') {
       _setUnitsSelectable(true, _getCardColor(card.cardModel.type));
       _highlightAllUnitMovementZones();
+    } else if (card.cardModel.type.toLowerCase() == 'defend') {
+      // Highlight menders without shield
+      _setUnitsSelectable(
+        true, 
+        _getCardColor(card.cardModel.type),
+        filter: (unit) => !unit.unitModel.hasShield
+      );
     }
   }
   
@@ -126,8 +133,13 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
   }
 
   // Helper to set selectable state for all units
-  void _setUnitsSelectable(bool selectable, Color color) {
+  // Helper to set selectable state for all units
+  void _setUnitsSelectable(bool selectable, Color color, {bool Function(UnitComponent)? filter}) {
     children.whereType<UnitComponent>().where((unit) => unit.unitModel.alliance == 'Menders').forEach((unit) {
+      if (selectable && filter != null && !filter(unit)) {
+         unit.setSelectable(false);
+         return;
+      }
       unit.setHaloColor(color);
       unit.setSelectable(selectable);
     });
@@ -151,11 +163,29 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     }
   }
     
-  // Handle unit selection for movement
-  void selectUnitForMovement(UnitComponent unit) {
-    // Only allow selection if a move card is active
-    if (selectedCardForExecution?.cardModel.type.toLowerCase() != 'move') return;
+  // Handle unit tap based on active card
+  void onUnitTapped(UnitComponent unit) {
+    final cardType = selectedCardForExecution?.cardModel.type.toLowerCase();
+    
+    if (cardType == 'move') {
+       _handleMoveUnitSelection(unit);
+    } else if (cardType == 'defend') {
+       _handleDefendUnitSelection(unit);
+    }
+  }
 
+  void _handleDefendUnitSelection(UnitComponent unit) {
+    if (unit.unitModel.alliance != 'Menders') return;
+    if (unit.unitModel.hasShield) return;
+    
+    // Apply Shield
+    unit.applyShield();
+    
+    // Consume Card and Deselect
+    _consumeSelectedCard();
+  }
+
+  void _handleMoveUnitSelection(UnitComponent unit) {
     // Only allow selecting Menders units
     if (unit.unitModel.alliance != 'Menders') return;
     
@@ -205,6 +235,21 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
         // Or re-compute. Re-computing is safer to ensure sync.
         _updateHighlightedTilesFromBorder(unit);
     }
+  }
+
+  void _consumeSelectedCard() {
+    if (selectedCardForExecution == null) return;
+    
+    // Move card to discard pile
+    final cardModel = selectedCardForExecution!.cardModel;
+    discardPile.add(cardModel);
+    currentPlayerCardPool.remove(cardModel);
+    
+    // Remove card component
+    selectedCardForExecution!.removeFromParent();
+    
+    // Clear state
+    deselectCard();
   }
   
   void _highlightAllUnitMovementZones() {
@@ -453,16 +498,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     // Clear manual path
     _currentPath.clear();
     
-    // Move card to discard pile
-    final cardModel = selectedCardForExecution!.cardModel;
-    discardPile.add(cardModel);
-    currentPlayerCardPool.remove(cardModel);
-    
-    // Remove card component
-    selectedCardForExecution!.removeFromParent();
-    
-    // Clear state
-    deselectCard();
+    _consumeSelectedCard();
   }
 
   // Handle tile control changes

@@ -106,6 +106,25 @@ class UnitComponent extends PositionComponent with TapCallbacks {
     _haloOpacity = 0.0;
   }
 
+  // Shield animation
+  double _shieldRotation = 0.0;
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    if (unitModel.hasShield) {
+      _shieldRotation += dt * 1.5; // Rotation speed
+    }
+  }
+
+  void applyShield() {
+    unitModel.hasShield = true;
+  }
+
+  void consumeShield() {
+    unitModel.hasShield = false;
+  }
+
   @override
   void render(Canvas canvas) {
     super.render(canvas);
@@ -128,6 +147,23 @@ class UnitComponent extends PositionComponent with TapCallbacks {
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
 
       canvas.drawCircle(center, radius + 4, innerGlowPaint);
+    }
+    
+    // Draw Shield (Green Spinner)
+    if (unitModel.hasShield) {
+        final shieldPaint = Paint()
+            ..color = const Color(0xFF69F0AE)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 3.0
+            ..strokeCap = StrokeCap.round;
+            
+        final rect = Rect.fromCircle(center: center, radius: radius + 2);
+        
+        // Draw 3 animated arcs
+        for (int i = 0; i < 3; i++) {
+            final startAngle = _shieldRotation + (i * (3.14159 * 2 / 3));
+            canvas.drawArc(rect, startAngle, 1.5, false, shieldPaint);
+        }
     }
 
     // Determine color and icon based on unit type
@@ -204,12 +240,13 @@ class UnitComponent extends PositionComponent with TapCallbacks {
 
   @override
   void onTapDown(TapDownEvent event) {
-    // Allow clicking even without halo - the game will check if a move card is active
+    // Forward interaction to game
     final game = findParent<MyGame>();
     if (game != null) {
-      game.selectUnitForMovement(this);
+      game.onUnitTapped(this);
     }
   }
+
 
   // Move unit to new grid coordinates with animation
   void moveTo(

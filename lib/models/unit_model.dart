@@ -19,5 +19,8 @@ class UnitModel {
     required this.y,
     this.movementPoints = 3,
     this.alliance = 'Menders',
+    this.hasShield = false,
   });
+
+  bool hasShield;
 }
