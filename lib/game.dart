@@ -159,6 +159,13 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     // Only allow selecting Menders units
     if (unit.unitModel.alliance != 'Menders') return;
     
+    // Clear any existing arrow and path from previous interactions
+    if (_movementArrow != null) {
+      _movementArrow!.removeFromParent();
+      _movementArrow = null;
+    }
+    _currentPath.clear();
+    
     // Toggle Logic
     if (selectedUnitForMovement == unit) {
         // Unselect (Toggle OFF)
