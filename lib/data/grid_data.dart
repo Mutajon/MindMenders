@@ -184,6 +184,7 @@ class GridData {
             type: 'Neuron',
             description: 'A processing neuron node',
             walkable: false,
+            blockShots: true,
           );
           placedNeurons++;
         }

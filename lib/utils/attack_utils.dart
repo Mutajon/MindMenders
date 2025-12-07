@@ -45,7 +45,7 @@ class AttackUtils {
 
     for (final dir in directions) {
       final List<TileModel> path = [];
-      bool blocked = false;
+
 
       for (int i = 1; i <= range; i++) {
         final currentX = startX + (dir.$1 * i);
@@ -60,11 +60,9 @@ class AttackUtils {
         // Check blocking rules
         if (attackType == 'projectile') {
             if (tile.blockShots) {
-                 // Hit the blocker. Blocker is valid target? Usually yes.
-                 // But path stops here.
+                 // Hit the blocker. It is the last valid target in this line.
                  targets[tile] = List.from(path);
-                 blocked = true;
-                 break;
+                 break; // Cannot shoot past this tile
             }
         }
         
@@ -76,12 +74,6 @@ class AttackUtils {
         }
         
         // Add as target if valid
-        // NOTE: We assume we can attack ANY valid tile in range, 
-        // not just occupied ones? 
-        // "highlight in purple the possible tiles to attack"
-        // Usually you can attack empty ground (e.g. to test usage) or strictly units?
-        // Prompt says "click on valid attackable tile". 
-        // Let's assume all walkable/controllable tiles are valid targets unless specified.
         if (isValidTarget) {
             targets[tile] = List.from(path);
         }
