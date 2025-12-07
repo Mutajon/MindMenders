@@ -10,77 +10,124 @@ class ControlBarOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Default values if empty
     final motherPercent = percentages['Mother'] ?? 0.0;
     final mendersPercent = percentages['Menders'] ?? 0.0;
     final neutralPercent = percentages['Neutral'] ?? 1.0;
 
     return Positioned(
-      top: 0,
+      top: 16,
       left: 0,
       right: 0,
-      child: Container(
-        height: 60,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black.withValues(alpha: 0.8),
-              Colors.transparent,
+      child: Center(
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.5, // Half width
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.black.withValues(alpha: 0.4),
+                Colors.black.withValues(alpha: 0.2),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.1),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+              ),
             ],
           ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Percentages Text Row
+              // Percentages Row
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildPercentageLabel('MOTHER', motherPercent, Colors.redAccent),
-                  _buildPercentageLabel('NEUTRAL', neutralPercent, Colors.grey),
-                  _buildPercentageLabel('MENDERS', mendersPercent, Colors.blueAccent),
+                  _buildPercentageLabel('MOTHER', motherPercent, const Color(0xFFFF4444)),
+                  _buildPercentageLabel('NEUTRAL', neutralPercent, const Color(0xFF888888)),
+                  _buildPercentageLabel('MENDERS', mendersPercent, const Color(0xFF4488FF)),
                 ],
               ),
-              const SizedBox(height: 6),
-              // Progress Bar
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: SizedBox(
-                  height: 8,
-                  child: Row(
+              const SizedBox(height: 12),
+              // Progress Bar with Glow
+              Container(
+                height: 12,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(6),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: Stack(
                     children: [
-                      // Mother (Red) - Left
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                        width: MediaQuery.of(context).size.width * 0.8 * motherPercent, // Scaling width relative to container isn't perfect in Row with flex, using flex is better
-                        // But Flex doesn't animate cleanly without custom widgets. 
-                        // Let's use Flexible with flex factors derived from percentages * 1000 for precision
+                      // Background
+                      Container(
+                        color: Colors.black.withValues(alpha: 0.3),
                       ),
-                      // Actually, let's use the Flex approach for structure, but AnimatedContainer is tricky inside Flex if we want smooth width transitions.
-                      // Better approach: multiple containers with simple Flex?
-                      // Or a CustomPainter?
-                      // Let's try Flexible + AnimatedFractionallySizedBox? No.
-                      // Let's stick to a LayoutBuilder or just simple Flexible widgets.
-                      // For sleekness and animation, let's try standard Expanded/Flexible with animated flex values? No, flex must be int.
-                      
-                      // Approach 2: Stack with calculated widths?
-                      // Approach 3: Row of simple Containers. For animation, we rely on parent rebuilding?
-                      // Implementation:
-                      Expanded(
-                        flex: (motherPercent * 1000).toInt(),
-                        child: Container(color: Colors.redAccent),
-                      ),
-                      Expanded(
-                        flex: (neutralPercent * 1000).toInt(),
-                        child: Container(color: Colors.white.withValues(alpha: 0.2)),
-                      ),
-                      Expanded(
-                        flex: (mendersPercent * 1000).toInt(),
-                        child: Container(color: Colors.blueAccent),
+                      // Progress segments
+                      Row(
+                        children: [
+                          // Mother (Red) - Left with glow
+                          if (motherPercent > 0)
+                            Expanded(
+                              flex: (motherPercent * 1000).toInt(),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFFFF2222), Color(0xFFFF6666)],
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFFFF4444).withValues(alpha: 0.6),
+                                      blurRadius: 8,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          // Neutral (Gray)
+                          if (neutralPercent > 0)
+                            Expanded(
+                              flex: (neutralPercent * 1000).toInt(),
+                              child: Container(
+                                color: Colors.white.withValues(alpha: 0.15),
+                              ),
+                            ),
+                          // Menders (Blue) - Right with glow
+                          if (mendersPercent > 0)
+                            Expanded(
+                              flex: (mendersPercent * 1000).toInt(),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF2266FF), Color(0xFF66AAFF)],
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF4488FF).withValues(alpha: 0.6),
+                                      blurRadius: 8,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ],
                   ),
@@ -95,16 +142,21 @@ class ControlBarOverlay extends StatelessWidget {
 
   Widget _buildPercentageLabel(String label, double percent, Color color) {
     return Text(
-      '$label ${(percent * 100).toStringAsFixed(1)}%',
+      '$label ${(percent * 100).toStringAsFixed(0)}%',
       style: TextStyle(
         color: color,
-        fontSize: 12,
-        fontWeight: FontWeight.bold,
-        letterSpacing: 1.2,
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 2.0,
+        fontFamily: 'Orbitron',
         shadows: [
           Shadow(
+            color: color.withValues(alpha: 0.5),
+            blurRadius: 8,
+          ),
+          Shadow(
             color: Colors.black.withValues(alpha: 0.8),
-            blurRadius: 4,
+            blurRadius: 2,
             offset: const Offset(0, 1),
           ),
         ],
