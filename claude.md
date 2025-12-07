@@ -127,3 +127,7 @@ UnitModel? hoveredUnit
 
 - **save**: Agent saves all changes and commits locally.
 - **push**: Agent saves, commits, and pushes changes to the remote repository.
+
+## Agent Instructions
+
+- **NEVER PUSH**: Do not run `git push` unless explicitly instructed by the user.

@@ -78,11 +78,11 @@ class ProjectileComponent extends PositionComponent {
   void render(Canvas canvas) {
       // Glow
       final paint = Paint()
-        ..color = Colors.purpleAccent.withValues(alpha: 0.6)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
-      canvas.drawCircle(Offset(size.x/2, size.y/2), 8, paint);
+        ..color = const Color(0xFFE040FB).withValues(alpha: 0.6)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+      canvas.drawCircle(Offset(size.x/2, size.y/2), 12, paint);
       
       // Core
-      canvas.drawCircle(Offset(size.x/2, size.y/2), 4, Paint()..color = Colors.white);
+      canvas.drawCircle(Offset(size.x/2, size.y/2), 3, Paint()..color = Colors.white);
   }
 }

@@ -1042,7 +1042,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       for (final tile in currentAttackTargets.keys) {
           final tileComponent = getTileAt(tile.x, tile.y);
           if (tileComponent != null) {
-            tileComponent.setHighlightColor(const Color(0xFFE040FB)); // PurpleAccent
+            tileComponent.setHighlightColor(const Color(0xFF4A148C)); // Dark Purple
           }
       }
       highlightedMovementTiles = currentAttackTargets.keys.toList(); 
@@ -1072,20 +1072,18 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       
       if (startPos == null || targetPos == null) return;
       
-      // Play Sound
-      try {
-        FlameAudio.play('shoot.wav');
-      } catch (e) {
-        print('Audio not found: $e');
-      }
+      // Play Sound (Disabled)
+      // try { FlameAudio.play('shoot.wav'); } catch (e) {}
       
       // Spawn Projectile
+      final damage = selectedUnitForAttack!.unitModel.attackValue;
       final projectile = ProjectileComponent(
           startPos: startPos,
           targetPos: targetPos,
           isArtillery: selectedUnitForAttack!.unitModel.attackType == 'artillery',
           onHit: () {
-              _applyDamage(targetTile, selectedUnitForAttack!.unitModel.attackValue);
+              _applyDamage(targetTile, damage);
+              // deselectCard(); // Already called by _consumeSelectedCard immediately
           }
       );
       add(projectile);

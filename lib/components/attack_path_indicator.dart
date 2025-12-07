@@ -31,7 +31,7 @@ class AttackPathIndicator extends PositionComponent {
   
   void _renderProjectilePath(Canvas canvas) {
     final paint = Paint()
-      ..color = Colors.purpleAccent
+      ..color = const Color(0xFFE1BEE7) // Lighter purple
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.0
       ..strokeCap = StrokeCap.round;
@@ -71,38 +71,29 @@ class AttackPathIndicator extends PositionComponent {
     final start = pathPoints.first;
     final end = pathPoints.last;
     
-    // Rainbow colors
-    final colors = [
-      Colors.red, Colors.orange, Colors.yellow, 
-      Colors.green, Colors.blue, Colors.indigo, Colors.purple
-    ];
+    // Light Purple Color for Artillery too, but maybe distinct?
+    // User requested "same hue but lighter".
+    // Projectile is Colors.purpleAccent (0xFFE040FB).
+    // Let's use a very light purple/lavender.
+    final dotColor = const Color(0xFFE1BEE7); // Purple 100
     
     // Calculate bezier control point (upwards)
     final mid = (start + end) / 2;
     final control = mid + Vector2(0, -60); // Arc height
     
-    // Draw dotted rainbow curve
-    final path = Path();
-    path.moveTo(start.x, start.y);
-    path.quadraticBezierTo(control.x, control.y, end.x, end.y);
-    
-    // We can't easily draw a multi-colored dotted line with standard canvas path in one go
-    // Simpler approach: Sample projectile motion path
-    
+    // Draw dotted curve points
     final points = <Offset>[];
     for (double t = 0; t <= 1.0; t += 0.05) {
         final p = _quadraticBezier(start.toOffset(), control.toOffset(), end.toOffset(), t);
         points.add(p);
     }
     
+    final paint = Paint()
+        ..color = dotColor
+        ..style = PaintingStyle.fill;
+
     for (int i = 0; i < points.length; i++) {
-        final p = points[i];
-        final color = colors[i % colors.length];
-        final paint = Paint()
-            ..color = color
-            ..style = PaintingStyle.fill;
-            
-        canvas.drawCircle(p, 3.0, paint);
+        canvas.drawCircle(points[i], 3.0, paint);
     }
   }
   
