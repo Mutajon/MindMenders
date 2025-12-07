@@ -512,28 +512,26 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
         bool captured = false;
         
         if (tile.alliance.toLowerCase() == 'neutral') {
+            // Capture current
             tileControlChange(tile, unitAlliance);
             captured = true;
-        } else if (tile.alliance != unitAlliance) {
-            // Entered an opposing tile
-            tileControlChange(tile, unitAlliance);
-            captured = true;
-            
-            // Trigger Splash Capture on neighbors
+
+            // Capture adjacent Neutral tiles
             final neighbors = gridUtils.getNeighbors(tile.x, tile.y);
             for (final p in neighbors) {
                 final neighbor = gridData.getTileAt(p.$1, p.$2);
                 if (neighbor != null && 
                     neighbor.controllable && 
-                    neighbor.alliance != unitAlliance && 
-                    neighbor.alliance.toLowerCase() != 'neutral') {
-                    
-                    // Found an opposing neighbor. Check if occupied.
-                    if (!isTileOccupied(neighbor.x, neighbor.y)) {
-                         tileControlChange(neighbor, unitAlliance);
-                    }
+                    neighbor.alliance.toLowerCase() == 'neutral') {
+                     
+                     // Capture neutral neighbor
+                     tileControlChange(neighbor, unitAlliance);
                 }
             }
+        } else if (tile.alliance != unitAlliance) {
+            // Entered an opposing tile - Capture ONLY this tile
+            tileControlChange(tile, unitAlliance);
+            captured = true;
         }
       },
     );
