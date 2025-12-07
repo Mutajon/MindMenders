@@ -4,7 +4,7 @@ import 'package:flame/effects.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'models/grid_data.dart';
+import 'data/grid_data.dart';
 import 'models/tile_model.dart';
 import 'models/unit_model.dart';
 import 'models/card_model.dart';
@@ -107,7 +107,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
   void selectCard(CardComponent card) {
     // Deselect previously selected card
     if (selectedCard != null && selectedCard != card) {
-      selectedCard!.deselect();
+      deselectCard(); // Ensure full state cleanup
     }
     
     // Update selected card reference
@@ -141,6 +141,16 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     _clearUnitSelection();
     _clearAllUnitBorders();
     _clearAttackState();
+  }
+  
+  Set<String> _getBlockedTiles(String excludeAlliance) {
+      final blocked = <String>{};
+      for (final u in children.whereType<UnitComponent>()) {
+           if (u.unitModel.alliance != excludeAlliance) {
+               blocked.add('${u.unitModel.x},${u.unitModel.y}');
+           }
+      }
+      return blocked;
   }
 
   // Helper to set selectable state for all units
@@ -275,6 +285,15 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       _clearAllUnitBorders();
       
       final menders = children.whereType<UnitComponent>().where((u) => u.unitModel.alliance == 'Menders').toList();
+      
+      // Calculate blocked tiles (occupied by non-Menders)
+      final blockedTiles = <String>{};
+      for (final u in children.whereType<UnitComponent>()) {
+           if (u.unitModel.alliance != 'Menders') {
+               blockedTiles.add('${u.unitModel.x},${u.unitModel.y}');
+           }
+      }
+
       int index = 0;
       
       for (final unit in menders) {
@@ -284,6 +303,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
               startY: unit.unitModel.y,
               range: unit.unitModel.movementPoints,
               gridData: gridData,
+              blockedTiles: blockedTiles,
             );
             
          // Generate color (variations of blue)
@@ -314,6 +334,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       startY: unit.unitModel.y,
       range: unit.unitModel.movementPoints,
       gridData: gridData,
+      blockedTiles: _getBlockedTiles(unit.unitModel.alliance),
     );
     highlightedMovementTiles = reachableTiles;
   }
@@ -388,7 +409,6 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
           highlightedMovementTiles.contains(targetTile)) {
         _currentPath.add(targetTile);
       } else if (highlightedMovementTiles.contains(targetTile)) {
-        // If not a neighbor but valid target, auto-calculate shortest path
         // This allows "snapping" to a new path if the user jumps the cursor
         final newPath = PathfindingUtils.findPath(
           startX: selectedUnitForMovement!.unitModel.x,
@@ -396,6 +416,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
           endX: targetTile.x,
           endY: targetTile.y,
           gridData: gridData,
+          blockedTiles: _getBlockedTiles(selectedUnitForMovement!.unitModel.alliance),
         );
         
         if (newPath.isNotEmpty) {
@@ -468,6 +489,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
         endX: targetTile.x,
         endY: targetTile.y,
         gridData: gridData,
+        blockedTiles: _getBlockedTiles(selectedUnitForMovement!.unitModel.alliance),
       );
     }
     

@@ -1,5 +1,5 @@
 import 'dart:math';
-import 'tile_model.dart';
+import '../models/tile_model.dart';
 
 class GridData {
   final int gridSize;

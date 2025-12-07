@@ -1,6 +1,6 @@
 import 'dart:collection';
 import '../models/tile_model.dart';
-import '../models/grid_data.dart';
+import '../data/grid_data.dart';
 
 class _TileNode {
   final TileModel tile;
@@ -18,6 +18,7 @@ class PathfindingUtils {
     required int endX,
     required int endY,
     required GridData gridData,
+    Set<String>? blockedTiles,
   }) {
     final Queue<_TileNode> queue = Queue();
     final Set<String> visited = {};
@@ -46,6 +47,7 @@ class PathfindingUtils {
         final key = '${neighbor.x},${neighbor.y}';
         
         if (visited.contains(key)) continue;
+        if (blockedTiles != null && blockedTiles.contains(key)) continue;
         if (!neighbor.walkable) continue;
         
         visited.add(key);
@@ -76,6 +78,7 @@ class PathfindingUtils {
     required int startY,
     required int range,
     required GridData gridData,
+    Set<String>? blockedTiles,
   }) {
     final List<TileModel> reachableTiles = [];
     final Set<String> visited = {};
@@ -104,6 +107,12 @@ class PathfindingUtils {
 
         // Skip if already visited
         if (visited.contains(key)) continue;
+
+        // Skip if not walkable
+        if (visited.contains(key)) continue;
+        
+        // Skip if blocked
+        if (blockedTiles != null && blockedTiles.contains(key)) continue;
 
         // Skip if not walkable
         if (!neighbor.walkable) continue;

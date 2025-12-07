@@ -1,5 +1,5 @@
 import '../models/tile_model.dart';
-import '../models/grid_data.dart';
+import '../data/grid_data.dart';
 import '../utils/grid_utils.dart';
 
 class AttackUtils {
