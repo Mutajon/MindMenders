@@ -34,6 +34,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
   final Function(TileModel?)? onTileHoverChange;
   final Function(UnitModel?)? onUnitHoverChange;
   final Function(DeckType?, bool)? onDeckHoverChange;
+  final Function(Map<String, double>)? onControlChange;
   
   // Keep track of the currently highlighted tile component to update its visual state
   IsometricTile? _highlightedComponent;
@@ -66,6 +67,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     this.onTileHoverChange, 
     this.onUnitHoverChange,
     this.onDeckHoverChange,
+    this.onControlChange,
   }) : super(gravity: Vector2(0, 10.0));
   
   // Input Handling
@@ -547,6 +549,44 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     // Update data
     tile.alliance = newAlliance;
     print('Tile at (${tile.x}, ${tile.y}) captured by $newAlliance');
+    
+    _calculateControlPercentages();
+  }
+  
+  void _calculateControlPercentages() {
+    if (onControlChange == null) return;
+    
+    int totalControllable = 0;
+    int motherCount = 0; // AI/Mother
+    int mendersCount = 0;
+    int neutralCount = 0;
+    
+    for (var row in gridData.tiles) {
+        for (var tile in row) {
+            if (tile.controllable) {
+                totalControllable++;
+                switch (tile.alliance.toLowerCase()) {
+                    case 'menders':
+                        mendersCount++;
+                        break;
+                    case 'ai': // Assuming 'ai' equates to Mother based on log output
+                    case 'mother':
+                        motherCount++;
+                        break;
+                    default:
+                        neutralCount++;
+                }
+            }
+        }
+    }
+    
+    if (totalControllable == 0) return;
+    
+    onControlChange!({
+        'Mother': motherCount / totalControllable,
+        'Menders': mendersCount / totalControllable,
+        'Neutral': neutralCount / totalControllable,
+    });
   }
   
   // Console command: Show discard pile
@@ -577,6 +617,9 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     
     // Load Test Level
     final level = LevelDatabase.getLevel('test_level');
+    
+    // Initial Control Calculation
+
     
     // Handle unit selection for movement
     // NOTE: The following block seems to be intended for a tap/click handler,
@@ -611,6 +654,9 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       brainDamageCoordinates: level.brainDamageCoordinates,
       memoryCoordinates: level.memoryCoordinates,
     );
+    
+    // Initial Control Calculation
+    _calculateControlPercentages();
     
     // Initialize AttackUtils
     attackUtils = AttackUtils(gridData: gridData, gridUtils: gridUtils);

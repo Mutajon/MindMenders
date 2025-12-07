@@ -11,6 +11,7 @@ import 'overlays/tile_info_overlay.dart';
 import 'overlays/unit_info_overlay.dart';
 import 'components/deck_component.dart';
 import 'overlays/deck_info_overlay.dart';
+import 'overlays/control_bar_overlay.dart';
 
 void main() {
   runApp(const MyApp());
@@ -46,6 +47,7 @@ class _GameScreenState extends State<GameScreen> {
   TileModel? hoveredTile;
   UnitModel? hoveredUnit;
   DeckType? hoveredDeckType;
+  Map<String, double> controlPercentages = {'Mother': 0.0, 'Menders': 0.0, 'Neutral': 1.0};
   late MyGame game;
 
   @override
@@ -65,6 +67,11 @@ class _GameScreenState extends State<GameScreen> {
       onDeckHoverChange: (type, isHovered) {
         setState(() {
           hoveredDeckType = isHovered ? type : null;
+        });
+      },
+      onControlChange: (percentages) {
+        setState(() {
+          controlPercentages = percentages;
         });
       },
     );
@@ -103,6 +110,7 @@ class _GameScreenState extends State<GameScreen> {
           UnitInfoOverlay(hoveredUnit: hoveredUnit),
           TileInfoOverlay(hoveredTile: hoveredTile),
           DeckInfoOverlay(hoveredDeckType: hoveredDeckType, game: game),
+          ControlBarOverlay(percentages: controlPercentages),
         ],
       ),
     );
