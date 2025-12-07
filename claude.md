@@ -122,3 +122,8 @@ UnitModel? hoveredUnit
 **Modify movement range**: Change `movement` field in `UnitModel`
 
 **Debug in browser**: Console commands available: `showPlayerCards()`, `showMasterCards()`, `showDiscardPile()`
+
+## User Commands
+
+- **save**: Agent saves all changes and commits locally.
+- **push**: Agent saves, commits, and pushes changes to the remote repository.

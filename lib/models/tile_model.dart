@@ -5,6 +5,7 @@ class TileModel {
   final String description;
   final bool walkable;
   final bool controllable;
+  final bool blockShots;
   String alliance;
 
   TileModel({
@@ -14,6 +15,7 @@ class TileModel {
     required this.description,
     this.walkable = false,
     this.controllable = false,
+    this.blockShots = false,
     this.alliance = 'Neutral',
   });
 }

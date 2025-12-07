@@ -11,7 +11,7 @@ class IsometricTile extends PositionComponent with TapCallbacks {
   final Vector2 centeringOffset;
 
   bool _isHovered = false;
-  bool _isMovementTarget = false;
+  Color? _highlightColor;
 
   IsometricTile({
     required this.tileModel,
@@ -93,6 +93,23 @@ class IsometricTile extends PositionComponent with TapCallbacks {
 
 
 
+    // Draw highlight overlay
+    if (_highlightColor != null) {
+        final highlightPaint = Paint()
+            ..color = _highlightColor!.withOpacity(0.5)
+            ..style = PaintingStyle.fill;
+            
+        // Fill
+        canvas.drawPath(path, highlightPaint);
+        
+        // Border
+        final highlightBorder = Paint()
+            ..color = _highlightColor!
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 3.0; // Thicker border
+        canvas.drawPath(path, highlightBorder);
+    }
+
     // Draw border (skip for Brain Damage to keep it fully transparent)
     if (tileModel.type != 'Brain Damage') {
       final borderPaint = Paint()
@@ -109,8 +126,17 @@ class IsometricTile extends PositionComponent with TapCallbacks {
     _isHovered = isHovered;
   }
 
+  void setHighlightColor(Color? color) {
+    _highlightColor = color;
+  }
+  
+  // Deprecated shim if needed, or just remove
   void setMovementTarget(bool isTarget) {
-    _isMovementTarget = isTarget;
+     if (isTarget) {
+         _highlightColor = Colors.blue.withValues(alpha: 0.5);
+     } else {
+         _highlightColor = null;
+     }
   }
 
   @override

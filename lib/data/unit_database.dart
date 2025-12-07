@@ -8,7 +8,7 @@ class UnitDatabase {
       hp: 3,
       attackRange: 5,
       attackValue: 1,
-      attackType: 'artillary',
+      attackType: 'artillery',
       specialAbility: 'replace position of two tiles',
       movementPoints: 3,
       x: x,

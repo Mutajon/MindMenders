@@ -40,6 +40,7 @@ class GridData {
           description: 'A conductive dendrite pathway',
           walkable: true,
           controllable: true,
+          blockShots: false,
         ),
       ),
     );
@@ -54,6 +55,7 @@ class GridData {
             type: 'Brain Damage',
             description: 'Damaged neural tissue',
             walkable: false,
+            blockShots: false,
           );
         }
       }
@@ -77,6 +79,7 @@ class GridData {
           type: 'Brain Damage',
           description: 'Damaged neural tissue',
           walkable: false,
+          blockShots: false,
         );
         placedBD++;
       }
@@ -93,6 +96,7 @@ class GridData {
             description: 'A memory storage unit',
             walkable: false, // Not walkable
             controllable: true,
+            blockShots: true,
           );
         }
       }
@@ -117,6 +121,7 @@ class GridData {
           description: 'A memory storage unit',
           walkable: false, // Not walkable
           controllable: true,
+          blockShots: true,
         );
         placedMemory++;
       }
@@ -133,6 +138,7 @@ class GridData {
             type: 'Neuron',
             description: 'A processing neuron node',
             walkable: false,
+            blockShots: true,
           );
         }
       }

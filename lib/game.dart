@@ -20,10 +20,15 @@ import 'utils/grid_utils.dart';
 import 'data/level_database.dart';
 import 'models/level_model.dart';
 import 'data/unit_database.dart';
+import 'utils/attack_utils.dart';
+import 'components/attack_path_indicator.dart';
+import 'components/projectile_component.dart';
+import 'package:flame_audio/flame_audio.dart';
 
 class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, SecondaryTapDetector {
   late GridData gridData;
   late GridUtils gridUtils;
+  late AttackUtils attackUtils;
   TileModel? hoveredTile;
   UnitModel? hoveredUnit;
   final Function(TileModel?)? onTileHoverChange;
@@ -120,6 +125,10 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
         _getCardColor(card.cardModel.type),
         filter: (unit) => !unit.unitModel.hasShield
       );
+    } else if (card.cardModel.type.toLowerCase() == 'attack') {
+        // Highlight all menders that have targets? Or just all menders?
+        // Simpler to just highlight all menders for now.
+        _setUnitsSelectable(true, _getCardColor(card.cardModel.type));
     }
   }
   
@@ -131,9 +140,9 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     _setUnitsSelectable(false, Colors.white);
     _clearUnitSelection();
     _clearAllUnitBorders();
+    _clearAttackState();
   }
 
-  // Helper to set selectable state for all units
   // Helper to set selectable state for all units
   void _setUnitsSelectable(bool selectable, Color color, {bool Function(UnitComponent)? filter}) {
     children.whereType<UnitComponent>().where((unit) => unit.unitModel.alliance == 'Menders').forEach((unit) {
@@ -153,11 +162,16 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       selectedUnitForMovement = null;
     }
     _clearTileHighlights();
+    // Also clear attack selection
+    if (selectedUnitForAttack != null) {
+        selectedUnitForAttack!.setSelected(false);
+        selectedUnitForAttack = null;
+    }
   }
   
   Color _getCardColor(String type) {
     switch (type.toLowerCase()) {
-      case 'attack': return const Color(0xFFFF5252);
+      case 'attack': return const Color(0xFFE040FB); // PurpleAccent
       case 'move': return const Color(0xFF448AFF);
       case 'defend': return const Color(0xFF69F0AE);
       default: return const Color(0xFFFFD700);
@@ -172,6 +186,10 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
        _handleMoveUnitSelection(unit);
     } else if (cardType == 'defend') {
        _handleDefendUnitSelection(unit);
+    } else if (cardType == 'defend') {
+       _handleDefendUnitSelection(unit);
+    } else if (cardType == 'attack') {
+       _handleAttackUnitSelection(unit);
     }
   }
 
@@ -419,6 +437,8 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
   void handleTileTap(TileModel tile) {
     if (selectedUnitForMovement != null && highlightedMovementTiles.contains(tile)) {
       _executeMovement(tile);
+    } else if (selectedUnitForAttack != null && currentAttackTargets.containsKey(tile)) {
+        _executeAttack(tile);
     }
   }
   
@@ -571,6 +591,9 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       brainDamageCoordinates: level.brainDamageCoordinates,
       memoryCoordinates: level.memoryCoordinates,
     );
+    
+    // Initialize AttackUtils
+    attackUtils = AttackUtils(gridData: gridData, gridUtils: gridUtils);
 
     // Calculate centering offset using GridUtils
     final offset = gridUtils.getCenteringOffset(size, gridData.gridSize);
@@ -982,6 +1005,121 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     }
   }
 
+  // Attack State
+  UnitComponent? selectedUnitForAttack;
+  Map<TileModel, List<TileModel>> currentAttackTargets = {};
+  AttackPathIndicator? _activeAttackPath;
+
+  void _handleAttackUnitSelection(UnitComponent unit) {
+    if (unit.unitModel.alliance != 'Menders') return;
+    
+    // Toggle logic
+     if (selectedUnitForAttack == unit) {
+        unit.setSelected(false);
+        selectedUnitForAttack = null;
+        _clearAttackState();
+     } else {
+         if (selectedUnitForAttack != null) selectedUnitForAttack!.setSelected(false);
+         selectedUnitForAttack = unit;
+         unit.setSelected(true);
+         
+         // Calculate Targets
+         currentAttackTargets = attackUtils.calculateAttackTargets(
+             startX: unit.unitModel.x,
+             startY: unit.unitModel.y,
+             range: unit.unitModel.attackRange,
+             attackType: unit.unitModel.attackType,
+         );
+         
+         // Highlight targets (Purple)
+         _highlightAttackTargets();
+     }
+  }
+  
+  void _highlightAttackTargets() {
+      _clearTileHighlights();
+      
+      for (final tile in currentAttackTargets.keys) {
+          final tileComponent = getTileAt(tile.x, tile.y);
+          if (tileComponent != null) {
+            tileComponent.setHighlightColor(const Color(0xFFE040FB)); // PurpleAccent
+          }
+      }
+      highlightedMovementTiles = currentAttackTargets.keys.toList(); 
+  }
+  
+  void _clearAttackState() {
+      currentAttackTargets.clear();
+      highlightedMovementTiles.clear();
+      if (_activeAttackPath != null) {
+          _activeAttackPath!.removeFromParent();
+          _activeAttackPath = null;
+      }
+       // Clear tile highlights
+      for (final tileComp in children.whereType<IsometricTile>()) {
+          tileComp.setHighlightColor(null);
+      }
+  }
+
+  void _executeAttack(TileModel targetTile) {
+      if (selectedUnitForAttack == null) return;
+      
+      final path = currentAttackTargets[targetTile];
+      if (path == null) return;
+      
+      final startPos = getTilePosition(selectedUnitForAttack!.unitModel.x, selectedUnitForAttack!.unitModel.y);
+      final targetPos = getTilePosition(targetTile.x, targetTile.y);
+      
+      if (startPos == null || targetPos == null) return;
+      
+      // Play Sound
+      try {
+        FlameAudio.play('shoot.wav');
+      } catch (e) {
+        print('Audio not found: $e');
+      }
+      
+      // Spawn Projectile
+      final projectile = ProjectileComponent(
+          startPos: startPos,
+          targetPos: targetPos,
+          isArtillery: selectedUnitForAttack!.unitModel.attackType == 'artillery',
+          onHit: () {
+              _applyDamage(targetTile, selectedUnitForAttack!.unitModel.attackValue);
+          }
+      );
+      add(projectile);
+      
+      _consumeSelectedCard();
+  }
+  
+  void _applyDamage(TileModel tile, int damage) {
+      final unitsAtTile = children.whereType<UnitComponent>().where(
+          (u) => u.unitModel.x == tile.x && u.unitModel.y == tile.y
+      );
+      
+      if (unitsAtTile.isEmpty) return;
+      final unit = unitsAtTile.first;
+      
+      if (unit.unitModel.hasShield) {
+          unit.consumeShield();
+          print('${unit.unitModel.name} shield absorbed damage!');
+      } else {
+          print('${unit.unitModel.name} took $damage damage!');
+          // Implement actual damage logic here (requires mutable HP or kill logic)
+          // For now, if HP <= damage, remove unit
+          if (unit.unitModel.hp <= damage) { // This comparison assumes full HP check, simplified
+              unit.removeFromParent();
+              print('${unit.unitModel.name} destroyed!');
+          }
+      }
+  }
+
+  @override
+  void onMouseMove(PointerHoverInfo info) {
+    handleMouseMove(info.eventPosition.widget);
+  }
+
   void handleMouseMove(Vector2 position) {
     // Convert screen position to world position
     final worldPosition = camera.globalToLocal(position);
@@ -1036,6 +1174,43 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       
       // Update movement arrow
       _updateMovementArrow(hoveredTile);
+      
+      // Update Attack Path
+      if (hoveredTile == null) {
+          if (_activeAttackPath != null) {
+              _activeAttackPath!.removeFromParent();
+              _activeAttackPath = null;
+          }
+      } else {
+          // Handle Attack Hover
+        if (selectedUnitForAttack != null && currentAttackTargets.containsKey(hoveredTile)) {
+            final path = currentAttackTargets[hoveredTile]!;
+            
+            if (_activeAttackPath != null) _activeAttackPath!.removeFromParent();
+            
+            final pathPoints = <Vector2>[];
+            final startPos = getTilePosition(selectedUnitForAttack!.unitModel.x, selectedUnitForAttack!.unitModel.y);
+            if (startPos != null) pathPoints.add(startPos);
+            
+            for (final t in path) {
+                final p = getTilePosition(t.x, t.y);
+                if (p != null) pathPoints.add(p);
+            }
+            
+            _activeAttackPath = AttackPathIndicator(
+                pathPoints: pathPoints, 
+                type: selectedUnitForAttack!.unitModel.attackType == 'artillery' 
+                    ? AttackPathType.artillery 
+                    : AttackPathType.projectile
+            );
+            add(_activeAttackPath!);
+        } else {
+            if (_activeAttackPath != null) {
+                _activeAttackPath!.removeFromParent();
+                _activeAttackPath = null;
+            }
+        }
+      }
     }
   }
   
