@@ -1,8 +1,9 @@
 class UnitModel {
   final String name;
   final int hp;
-  final String attackMode;
-  final int damageValue;
+  final int attackRange;
+  final int attackValue;
+  final String attackType; //artillary, melee, projectile
   final String specialAbility;
   int x;
   int y;
@@ -12,8 +13,9 @@ class UnitModel {
   UnitModel({
     required this.name,
     required this.hp,
-    required this.attackMode,
-    required this.damageValue,
+    required this.attackRange,
+    required this.attackValue,
+    required this.attackType,
     required this.specialAbility,
     required this.x,
     required this.y,

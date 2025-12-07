@@ -19,6 +19,7 @@ import 'utils/pathfinding_utils.dart';
 import 'utils/grid_utils.dart';
 import 'data/level_database.dart';
 import 'models/level_model.dart';
+import 'data/unit_database.dart';
 
 class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, SecondaryTapDetector {
   late GridData gridData;
@@ -722,16 +723,8 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     archerSpawn ??= gridData.getTileAt(0, 5) ?? TileModel(x: 0, y: 5, type: 'Dendrite', description: 'Fallback', walkable: true);
 
     // Create and add a demo unit at grid center
-    final demoUnit = UnitModel(
-      name: 'Manipulator',
-      hp: 3,
-      attackMode: 'Melee',
-      damageValue: 2,
-      specialAbility: 'Shield Bash',
-      x: knightSpawn.x,
-      y: knightSpawn.y,
-      movementPoints: 2,
-    );
+    // Create and add a demo unit at grid center
+    final demoUnit = UnitDatabase.getManipulator(knightSpawn.x, knightSpawn.y);
     final unitComponent = UnitComponent(unitModel: demoUnit);
     add(unitComponent);
 
@@ -739,8 +732,9 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     final archerUnit = UnitModel(
       name: 'Infector',
       hp: 2,
-      attackMode: 'Ranged',
-      damageValue: 3,
+      attackRange: 3,
+      attackValue: 3,
+      attackType: 'projectile',
       specialAbility: 'Double Shot',
       x: archerSpawn.x,
       y: archerSpawn.y,
@@ -764,8 +758,9 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
              final enemyUnit = UnitModel(
               name: enemyType,
               hp: 2,
-              attackMode: 'Melee',
-              damageValue: 1,
+              attackRange: 1,
+              attackValue: 1,
+              attackType: 'melee',
               specialAbility: 'None',
               x: spawnTile.x,
               y: spawnTile.y,
@@ -810,8 +805,9 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
         final enemyUnit = UnitModel(
           name: enemyType,
           hp: 2,
-          attackMode: 'Melee',
-          damageValue: 1,
+          attackRange: 1,
+          attackValue: 1,
+          attackType: 'melee',
           specialAbility: 'None',
           x: spawnTile.x,
           y: spawnTile.y,

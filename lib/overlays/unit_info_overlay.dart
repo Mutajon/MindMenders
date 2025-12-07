@@ -99,8 +99,8 @@ class UnitInfoOverlay extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   _buildStatRow(Icons.favorite, 'HP', hoveredUnit!.hp.toString()),
-                  _buildStatRow(Icons.flash_on, 'Attack', hoveredUnit!.attackMode),
-                  _buildStatRow(Icons.whatshot, 'Damage', hoveredUnit!.damageValue.toString()),
+                  _buildStatRow(Icons.flash_on, 'Attack Range', hoveredUnit!.attackRange.toString()),
+                  _buildStatRow(Icons.whatshot, 'Attack Value', hoveredUnit!.attackValue.toString()),
                   _buildStatRow(Icons.directions_walk, 'Movement', hoveredUnit!.movementPoints.toString()),
                   const SizedBox(height: 4),
                   Container(
