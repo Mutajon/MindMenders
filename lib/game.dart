@@ -1216,6 +1216,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
   }
 
   void handleMouseMove(Vector2 position) {
+    UnitComponent? targetUnitComponent;
     // Convert screen position to world position
     final worldPosition = camera.globalToLocal(position);
     
@@ -1292,89 +1293,57 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       // Update movement arrow
       _updateMovementArrow(hoveredTile);
       
-      // Update Attack Path
+      // Update Attack Path and Damage Preview
       if (hoveredTile == null) {
           if (_activeAttackPath != null) {
               _activeAttackPath!.removeFromParent();
               _activeAttackPath = null;
           }
       } else {
-          // Handle Attack Hover
-        if (selectedUnitForAttack != null && currentAttackTargets.containsKey(hoveredTile)) {
-            final path = currentAttackTargets[hoveredTile]!;
-            
-            if (_activeAttackPath != null) _activeAttackPath!.removeFromParent();
-            
-            final pathPoints = <Vector2>[];
-            final startPos = getTilePosition(selectedUnitForAttack!.unitModel.x, selectedUnitForAttack!.unitModel.y);
-            if (startPos != null) pathPoints.add(startPos);
-            
-            for (final t in path) {
-                final p = getTilePosition(t.x, t.y);
-                if (p != null) pathPoints.add(p);
-            }
-            
-            _activeAttackPath = AttackPathIndicator(
-                pathPoints: pathPoints, 
-                type: selectedUnitForAttack!.unitModel.attackType == 'artillery' 
-                    ? AttackPathType.artillery 
-                    : AttackPathType.projectile
-            );
-            add(_activeAttackPath!);
-        } else {
-            // Check if we are hovering a unit that is a target
-            UnitComponent? targetUnitComponent;
-             // Find unit at this tile
-             // Optimization: We could have a map, but iterating is fine for now
-             for (final u in children.whereType<UnitComponent>()) {
-                 if (u.unitModel.x == hoveredTile!.x && u.unitModel.y == hoveredTile!.y) {
-                     targetUnitComponent = u;
-                     break;
-                 }
-             }
-
-            if (selectedUnitForAttack != null && currentAttackTargets.containsKey(hoveredTile)) {
-                
-                if (targetUnitComponent != null && selectedUnitForAttack != null) {
-                    print('Setting preview damage: ${selectedUnitForAttack!.unitModel.attackValue} on ${targetUnitComponent.unitModel.name}');
-                    targetUnitComponent.setPreviewDamage(selectedUnitForAttack!.unitModel.attackValue);
-                } else {
-                    print('Target unit null or attacker null? unit: $targetUnitComponent, attacker: $selectedUnitForAttack');
-                }
-                
-                final path = currentAttackTargets[hoveredTile]!;
-                
-                if (_activeAttackPath != null) _activeAttackPath!.removeFromParent();
-                
-                final pathPoints = <Vector2>[];
-                final startPos = getTilePosition(selectedUnitForAttack!.unitModel.x, selectedUnitForAttack!.unitModel.y);
-                if (startPos != null) pathPoints.add(startPos);
-                
-                for (final t in path) {
-                    final p = getTilePosition(t.x, t.y);
-                    if (p != null) pathPoints.add(p);
-                }
-                
-                _activeAttackPath = AttackPathIndicator(
-                    pathPoints: pathPoints, 
-                    type: selectedUnitForAttack!.unitModel.attackType == 'artillery' 
-                        ? AttackPathType.artillery 
-                        : AttackPathType.projectile
-                );
-                add(_activeAttackPath!);
-            } else {
-                if (_activeAttackPath != null) {
-                    _activeAttackPath!.removeFromParent();
-                    _activeAttackPath = null;
-                }
-                // Reset preview if not valid target (but still hovering a unit maybe?)
-                // Actually we should reset preview for ALL units that are not the current target 
-                // OR just reset the one we might have set previously.
-                // A global "reset all previews" is safest but expensive.
-                // Better: keep track of previewed unit.
-            }
-        }
-    }
+          // ALWAYS find unit at hovered tile (regardless of attack targeting state)
+          for (final u in children.whereType<UnitComponent>()) {
+              if (u.unitModel.x == hoveredTile!.x && u.unitModel.y == hoveredTile!.y) {
+                  targetUnitComponent = u;
+                  break;
+              }
+          }
+          
+          // Check if hovering a valid attack target
+          if (selectedUnitForAttack != null && currentAttackTargets.containsKey(hoveredTile)) {
+              // Set preview damage on the unit (if found)
+              if (targetUnitComponent != null) {
+                  targetUnitComponent.setPreviewDamage(selectedUnitForAttack!.unitModel.attackValue);
+              }
+              
+              // Draw attack path
+              final path = currentAttackTargets[hoveredTile]!;
+              if (_activeAttackPath != null) _activeAttackPath!.removeFromParent();
+              
+              final pathPoints = <Vector2>[];
+              final startPos = getTilePosition(selectedUnitForAttack!.unitModel.x, selectedUnitForAttack!.unitModel.y);
+              if (startPos != null) pathPoints.add(startPos);
+              
+              for (final t in path) {
+                  final p = getTilePosition(t.x, t.y);
+                  if (p != null) pathPoints.add(p);
+              }
+              
+              _activeAttackPath = AttackPathIndicator(
+                  pathPoints: pathPoints,
+                  type: selectedUnitForAttack!.unitModel.attackType == 'artillery'
+                      ? AttackPathType.artillery
+                      : AttackPathType.projectile
+              );
+              add(_activeAttackPath!);
+          } else {
+              // Not a valid attack target - clear attack path
+              if (_activeAttackPath != null) {
+                  _activeAttackPath!.removeFromParent();
+                  _activeAttackPath = null;
+              }
+          }
+      }
+    
     
     // Cleanup Previews for units that are NOT the current valid target
     // This is a bit inefficient to run every move, but robust.
@@ -1383,7 +1352,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
          // But we should ensure others are cleared?
          // Actually, if we move from Unit A to Unit B, we need to clear A.
          for (final u in children.whereType<UnitComponent>()) {
-             if (u.unitModel.x != hoveredTile!.x || u.unitModel.y != hoveredTile!.y) {
+             if (u != targetUnitComponent) {
                  u.setPreviewDamage(0);
              }
          }

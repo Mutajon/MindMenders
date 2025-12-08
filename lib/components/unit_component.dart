@@ -248,10 +248,10 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
             Paint fillPaint = Paint()..color = const Color(0xFF00FF00); // Default Bright Green
             
             if (isPreviewLost) {
-               // Flash from Bright Green to Transparent/Black
+               // Flash from Bright Green to Red to indicate damage
                final flashColor = Color.lerp(
                    const Color(0xFF00FF00), 
-                   const Color(0xFF000000), 
+                   const Color(0xFFFF0000), 
                    _currentFlashIntensity
                ) ?? const Color(0xFF00FF00);
                
