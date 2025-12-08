@@ -106,7 +106,7 @@ class TileInfoOverlay extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    hoveredTile!.description,
+                    hoveredTile!.description.replaceAll('. ', '.\n'),
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.9),
                       fontSize: 12,

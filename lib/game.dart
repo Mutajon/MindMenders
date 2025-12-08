@@ -119,7 +119,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     // If it's a move card, make units selectable and highlight their zones
     if (card.cardModel.type.toLowerCase() == 'move') {
       _setUnitsSelectable(true, _getCardColor(card.cardModel.type));
-      _highlightAllUnitMovementZones();
+      // Borders will be shown when a specific unit is clicked
     } else if (card.cardModel.type.toLowerCase() == 'defend') {
       // Highlight menders without shield
       _setUnitsSelectable(
@@ -171,6 +171,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
   void _clearUnitSelection() {
     if (selectedUnitForMovement != null) {
       selectedUnitForMovement!.setSelected(false);
+      _hideMovementBorder(selectedUnitForMovement!);
       selectedUnitForMovement = null;
     }
     _clearTileHighlights();
@@ -242,40 +243,22 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     if (selectedUnitForMovement == unit) {
         // Unselect (Toggle OFF)
         unit.setSelected(false);
+        _hideMovementBorder(unit);
         selectedUnitForMovement = null;
-        
-        // Reshow all borders
-         _unitBorders.forEach((u, border) {
-             if (!border.isMounted) add(border);
-         });
-         
-        // Clear active highlighted tiles for interaction
         highlightedMovementTiles.clear();
         
     } else {
-        // Select (Toggle ON / Switch)
+        // New Selection (Switching or First Time)
         
         // Deselect previous
         if (selectedUnitForMovement != null) {
           selectedUnitForMovement!.setSelected(false);
+          _hideMovementBorder(selectedUnitForMovement!);
         }
         
         selectedUnitForMovement = unit;
         unit.setSelected(true);
-        
-        // Hide all borders except this one
-         _unitBorders.forEach((u, border) {
-             if (u == unit) {
-                 if (!border.isMounted) add(border);
-             } else {
-                 if (border.isMounted) border.removeFromParent();
-             }
-         });
-         
-        // Set highlighted tiles for interaction
-        // We need to re-fetch the tiles corresponding to this unit we computed earlier
-        // Or re-compute. Re-computing is safer to ensure sync.
-        _updateHighlightedTilesFromBorder(unit);
+        _showMovementBorder(unit);
     }
   }
 
@@ -294,63 +277,49 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     deselectCard();
   }
   
-  void _highlightAllUnitMovementZones() {
-      _clearAllUnitBorders();
-      
-      final menders = children.whereType<UnitComponent>().where((u) => u.unitModel.alliance == 'Menders').toList();
-      
-      // Calculate blocked tiles (occupied by non-Menders)
-      final blockedTiles = <String>{};
-      for (final u in children.whereType<UnitComponent>()) {
-           if (u.unitModel.alliance != 'Menders') {
-               blockedTiles.add('${u.unitModel.x},${u.unitModel.y}');
-           }
-      }
+  void _showMovementBorder(UnitComponent unit) {
+       // Calculate blocked tiles (occupied by non-Menders)
+       final blockedTiles = <String>{};
+       for (final u in children.whereType<UnitComponent>()) {
+            if (u.unitModel.alliance != 'Menders') {
+                blockedTiles.add('${u.unitModel.x},${u.unitModel.y}');
+            }
+       }
 
-      int index = 0;
-      
-      for (final unit in menders) {
-          // Calculate reachable tiles
-          final reachableTiles = PathfindingUtils.calculateReachableTiles(
-              startX: unit.unitModel.x,
-              startY: unit.unitModel.y,
-              range: unit.unitModel.movementPoints,
-              gridData: gridData,
-              blockedTiles: blockedTiles,
-            );
-            
-         // Generate color (variations of blue)
-         // Base: 0xFF448AFF. Hue shift or lightness shift.
-         final baseBlue = HSVColor.fromColor(const Color(0xFF448AFF));
-         final newColor = baseBlue.withHue((baseBlue.hue + (index * 15)) % 360).toColor();
+       // Calculate reachable tiles
+       final reachableTiles = PathfindingUtils.calculateReachableTiles(
+           startX: unit.unitModel.x,
+           startY: unit.unitModel.y,
+           range: unit.unitModel.movementPoints,
+           gridData: gridData,
+           blockedTiles: blockedTiles,
+       );
+       
+       // Update interaction state
+       highlightedMovementTiles = reachableTiles;
          
-         final border = MovementBorderComponent(baseColor: newColor);
-         add(border);
-         
-         // Create borderset
-         final borderTiles = reachableTiles.toSet();
-         final currentTile = gridData.getTileAt(unit.unitModel.x, unit.unitModel.y);
-         if (currentTile != null) borderTiles.add(currentTile);
-         
-         border.updateTiles(borderTiles);
-         
-         _unitBorders[unit] = border;
-         index++;
+       // Create Visual Border
+       final baseBlue = HSVColor.fromColor(const Color(0xFF448AFF));
+       final border = MovementBorderComponent(baseColor: baseBlue.toColor());
+       add(border);
+       
+       final borderTiles = reachableTiles.toSet();
+       final currentTile = gridData.getTileAt(unit.unitModel.x, unit.unitModel.y);
+       if (currentTile != null) borderTiles.add(currentTile);
+       
+       border.updateTiles(borderTiles);
+       
+       _unitBorders[unit] = border;
+  }
+
+  void _hideMovementBorder(UnitComponent unit) {
+      if (_unitBorders.containsKey(unit)) {
+          _unitBorders[unit]!.removeFromParent();
+          _unitBorders.remove(unit);
       }
   }
   
-  void _updateHighlightedTilesFromBorder(UnitComponent unit) {
-     highlightedMovementTiles.clear();
-     // Re-calc
-    final reachableTiles = PathfindingUtils.calculateReachableTiles(
-      startX: unit.unitModel.x,
-      startY: unit.unitModel.y,
-      range: unit.unitModel.movementPoints,
-      gridData: gridData,
-      blockedTiles: _getBlockedTiles(unit.unitModel.alliance),
-    );
-    highlightedMovementTiles = reachableTiles;
-  }
+
   
   void _clearAllUnitBorders() {
       _unitBorders.values.forEach((b) => b.removeFromParent());
