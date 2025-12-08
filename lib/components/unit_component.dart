@@ -6,7 +6,7 @@ import '../models/unit_model.dart';
 import '../models/tile_model.dart';
 import '../game.dart';
 
-class UnitComponent extends PositionComponent with TapCallbacks {
+class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
   final UnitModel unitModel;
 
   // Selection states
@@ -29,7 +29,18 @@ class UnitComponent extends PositionComponent with TapCallbacks {
   }) : super(
           size: Vector2(25, 25), // Unit size
           anchor: Anchor.center,
+          priority: 100, // Ensure strictly above tiles (default 0)
         );
+
+  @override
+  void onTapDown(TapDownEvent event) {
+    print('UnitComponent tapped: ${unitModel.name}');
+    // Forward interaction to game
+    final game = findParent<MyGame>();
+    if (game != null) {
+      game.onUnitTapped(this);
+    }
+  }
 
   @override
   void onLoad() {
@@ -115,21 +126,83 @@ class UnitComponent extends PositionComponent with TapCallbacks {
 
   // Shield animation
   double _shieldRotation = 0.0;
-
-  @override
-  void update(double dt) {
-    super.update(dt);
-    if (unitModel.hasShield) {
-      _shieldRotation += dt * 1.5; // Rotation speed
-    }
-  }
-
+  
   void applyShield() {
     unitModel.hasShield = true;
   }
 
   void consumeShield() {
     unitModel.hasShield = false;
+  }
+
+
+  // Damage Preview State
+  int _previewDamageAmount = 0;
+  double _flashTimer = 0.0;
+  bool _flashAscending = true;
+  double _currentFlashIntensity = 0.0;
+
+  // Damage Taking State
+  ColorEffect? _damageFlashEffect;
+
+  void setPreviewDamage(int amount) {
+    _previewDamageAmount = amount;
+  }
+
+  void triggerDamageReaction() {
+      // Flash Red Effect
+      _damageFlashEffect?.removeFromParent();
+      _damageFlashEffect = ColorEffect(
+          const Color(0xFFFF0000), // Red
+          EffectController(
+            duration: 0.2, // Quick Flash
+            reverseDuration: 0.2,
+            repeatCount: 5, // Pulse a few times for approx 2 seconds total? No, 0.4 * 5 = 2.0s
+          ),
+          opacityTo: 0.7,
+      );
+      add(_damageFlashEffect!);
+      
+      // Shake Effect
+      add(
+          MoveEffect.by(
+              Vector2(5, 0), 
+              EffectController(
+                  duration: 0.05,
+                  reverseDuration: 0.05,
+                  repeatCount: 10, // Shake for 1s
+              ),
+          ),
+      );
+  }
+
+  @override
+  void update(double dt) {
+      super.update(dt);
+      
+      // Update Shield
+      if (unitModel.hasShield) {
+        _shieldRotation += dt * 1.5;
+      }
+      
+      // Update Damage Preview Flash
+      if (_previewDamageAmount > 0) {
+          double speed = 2.0; // Flash speed
+          if (_flashAscending) {
+              _flashTimer += dt * speed;
+              if (_flashTimer >= 1.0) {
+                  _flashTimer = 1.0;
+                  _flashAscending = false;
+              }
+          } else {
+              _flashTimer -= dt * speed;
+              if (_flashTimer <= 0.0) {
+                  _flashTimer = 0.0;
+                  _flashAscending = true;
+              }
+          }
+          _currentFlashIntensity = _flashTimer; // 0..1
+      }
   }
 
   void _drawHealthBar(Canvas canvas, Offset center, double radius) {
@@ -153,11 +226,38 @@ class UnitComponent extends PositionComponent with TapCallbacks {
         final bgPaint = Paint()..color = Colors.black;
         canvas.drawRect(segmentRect, bgPaint);
         
-        // 2. Draw Fill (Green if active, nothing if lost)
-        // If i < currentHP, this segment is active.
-        if (i < unitModel.currentHP) {
+        bool isNormallyFilled = i < unitModel.currentHP;
+        bool isPreviewLost = false;
+        
+        // Calculate if this block is pending loss
+        // e.g. HP = 3, Damage = 1.
+        // i=0 (Filled), i=1 (Filled), i=2 (Filled -> Lost?)
+        // If currentHP is 3, indices 0, 1, 2 are filled.
+        // If damage is 1, the LAST one (index 2) is lost.
+        // Index >= (currentHP - damage) && Index < currentHP
+        
+        if (isNormallyFilled && _previewDamageAmount > 0) {
+            if (i >= (unitModel.currentHP - _previewDamageAmount)) {
+                isPreviewLost = true;
+            }
+        }
+        
+        // 2. Draw Fill
+        if (isNormallyFilled) {
             final fillRect = segmentRect.deflate(1.0); // Slight padding inside
-            final fillPaint = Paint()..color = const Color(0xFF00FF00); // Bright Green
+            Paint fillPaint = Paint()..color = const Color(0xFF00FF00); // Default Bright Green
+            
+            if (isPreviewLost) {
+               // Flash from Bright Green to Transparent/Black
+               final flashColor = Color.lerp(
+                   const Color(0xFF00FF00), 
+                   const Color(0xFF000000), 
+                   _currentFlashIntensity
+               ) ?? const Color(0xFF00FF00);
+               
+               fillPaint = Paint()..color = flashColor;
+            }
+            
             canvas.drawRect(fillRect, fillPaint);
         }
         
@@ -194,8 +294,8 @@ class UnitComponent extends PositionComponent with TapCallbacks {
       canvas.drawCircle(center, radius + 4, innerGlowPaint);
     }
     
-    // Draw health bar above unit (Always on if selected, or if hovered)
-    if (_isSelectedForAction || _isHovered) {
+    // Draw health bar above unit (Always on if selected, or if hovered, OR if previewing damage)
+    if (_isSelectedForAction || _isHovered || _previewDamageAmount > 0) {
       _drawHealthBar(canvas, center, radius);
     }
     
@@ -288,14 +388,7 @@ class UnitComponent extends PositionComponent with TapCallbacks {
     return (point - center).length <= radius;
   }
 
-  @override
-  void onTapDown(TapDownEvent event) {
-    // Forward interaction to game
-    final game = findParent<MyGame>();
-    if (game != null) {
-      game.onUnitTapped(this);
-    }
-  }
+
 
 
   // Move unit to new grid coordinates with animation

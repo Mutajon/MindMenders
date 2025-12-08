@@ -192,16 +192,27 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     
   // Handle unit tap based on active card
   void onUnitTapped(UnitComponent unit) {
+    // 1. Check for Attack Execution (Targeting an Enemy)
+    if (selectedUnitForAttack != null && selectedCardForExecution?.cardModel.type.toLowerCase() == 'attack') {
+         final targetTile = gridData.getTileAt(unit.unitModel.x, unit.unitModel.y);
+         
+         if (targetTile != null && currentAttackTargets.containsKey(targetTile)) {
+             _executeAttack(targetTile);
+             return;
+         }
+    }
+
+    // 2. Normal Unit Selection Logic
     final cardType = selectedCardForExecution?.cardModel.type.toLowerCase();
     
     if (cardType == 'move') {
        _handleMoveUnitSelection(unit);
     } else if (cardType == 'defend') {
        _handleDefendUnitSelection(unit);
-    } else if (cardType == 'defend') {
-       _handleDefendUnitSelection(unit);
     } else if (cardType == 'attack') {
        _handleAttackUnitSelection(unit);
+    } else {
+       print('DEBUG: Unknown or null card type for selection.');
     }
   }
 
@@ -1080,11 +1091,11 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     if (unit.unitModel.alliance != 'Menders') return;
     
     // Toggle logic
-     if (selectedUnitForAttack == unit) {
-        unit.setSelected(false);
-        selectedUnitForAttack = null;
-        _clearAttackState();
-     } else {
+    if (selectedUnitForAttack == unit) {
+         selectedUnitForAttack = null;
+         _clearAttackState();
+         unit.setSelected(false);
+      } else {
          if (selectedUnitForAttack != null) selectedUnitForAttack!.setSelected(false);
          selectedUnitForAttack = unit;
          unit.setSelected(true);
@@ -1101,6 +1112,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
          _highlightAttackTargets();
      }
   }
+
   
   void _highlightAttackTargets() {
       _clearTileHighlights();
@@ -1170,13 +1182,30 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
           print('${unit.unitModel.name} shield absorbed damage!');
       } else {
           print('${unit.unitModel.name} took $damage damage!');
+          
+          // Trigger visual reaction
+          unit.triggerDamageReaction();
+          
           // Implement actual damage logic here
           unit.unitModel.currentHP -= damage;
           print('Unit HP: ${unit.unitModel.currentHP} / ${unit.unitModel.maxHP}');
           
           if (unit.unitModel.currentHP <= 0) { 
-              unit.removeFromParent();
-              print('${unit.unitModel.name} destroyed!');
+              // Delay removal slightly to show death effect or allow flash to start
+              // But requirements say "unit is dead and removed".
+              // Let's allow the flash to play for a split second or just remove?
+              // User said "briefly flash for 2 seconds, and reduce... if <= 0 removed".
+              // This implies if it dies, it might be removed immediately. 
+              // Logic check: Can't flash if removed. 
+              // I will use a Future.delayed for removal if dead, to allow flash visibility?
+              // Or maybe just remove immediately if requested.
+              // "if... removed from the game".
+              
+              // Let's try to keep it for 0.5s to show the red flash, then remove.
+              Future.delayed(const Duration(milliseconds: 500), () {
+                 unit.removeFromParent();
+                 print('${unit.unitModel.name} destroyed!');
+              });
           }
       }
   }
@@ -1293,13 +1322,78 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
             );
             add(_activeAttackPath!);
         } else {
-            if (_activeAttackPath != null) {
-                _activeAttackPath!.removeFromParent();
-                _activeAttackPath = null;
+            // Check if we are hovering a unit that is a target
+            UnitComponent? targetUnitComponent;
+             // Find unit at this tile
+             // Optimization: We could have a map, but iterating is fine for now
+             for (final u in children.whereType<UnitComponent>()) {
+                 if (u.unitModel.x == hoveredTile!.x && u.unitModel.y == hoveredTile!.y) {
+                     targetUnitComponent = u;
+                     break;
+                 }
+             }
+
+            if (selectedUnitForAttack != null && currentAttackTargets.containsKey(hoveredTile)) {
+                
+                if (targetUnitComponent != null && selectedUnitForAttack != null) {
+                    print('Setting preview damage: ${selectedUnitForAttack!.unitModel.attackValue} on ${targetUnitComponent.unitModel.name}');
+                    targetUnitComponent.setPreviewDamage(selectedUnitForAttack!.unitModel.attackValue);
+                } else {
+                    print('Target unit null or attacker null? unit: $targetUnitComponent, attacker: $selectedUnitForAttack');
+                }
+                
+                final path = currentAttackTargets[hoveredTile]!;
+                
+                if (_activeAttackPath != null) _activeAttackPath!.removeFromParent();
+                
+                final pathPoints = <Vector2>[];
+                final startPos = getTilePosition(selectedUnitForAttack!.unitModel.x, selectedUnitForAttack!.unitModel.y);
+                if (startPos != null) pathPoints.add(startPos);
+                
+                for (final t in path) {
+                    final p = getTilePosition(t.x, t.y);
+                    if (p != null) pathPoints.add(p);
+                }
+                
+                _activeAttackPath = AttackPathIndicator(
+                    pathPoints: pathPoints, 
+                    type: selectedUnitForAttack!.unitModel.attackType == 'artillery' 
+                        ? AttackPathType.artillery 
+                        : AttackPathType.projectile
+                );
+                add(_activeAttackPath!);
+            } else {
+                if (_activeAttackPath != null) {
+                    _activeAttackPath!.removeFromParent();
+                    _activeAttackPath = null;
+                }
+                // Reset preview if not valid target (but still hovering a unit maybe?)
+                // Actually we should reset preview for ALL units that are not the current target 
+                // OR just reset the one we might have set previously.
+                // A global "reset all previews" is safest but expensive.
+                // Better: keep track of previewed unit.
             }
         }
-      }
     }
+    
+    // Cleanup Previews for units that are NOT the current valid target
+    // This is a bit inefficient to run every move, but robust.
+    if (selectedUnitForAttack != null && hoveredTile != null && currentAttackTargets.containsKey(hoveredTile)) {
+         // Valid target hover, handled above (setPreviewDamage called)
+         // But we should ensure others are cleared?
+         // Actually, if we move from Unit A to Unit B, we need to clear A.
+         for (final u in children.whereType<UnitComponent>()) {
+             if (u.unitModel.x != hoveredTile!.x || u.unitModel.y != hoveredTile!.y) {
+                 u.setPreviewDamage(0);
+             }
+         }
+    } else {
+         // Not hovering a valid attack target, clear all previews
+         for (final u in children.whereType<UnitComponent>()) {
+             u.setPreviewDamage(0);
+         }
+    }
+  }
   }
   
   // Expose debug commands to browser console
@@ -1334,6 +1428,6 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       print('  Set: ${card.set}');
       print('---');
     }
-    print('Total cards in master pool: ${CardDatabase.masterCardPool.length}');
   }
 }
+

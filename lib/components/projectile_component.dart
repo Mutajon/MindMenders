@@ -19,22 +19,8 @@ class ProjectileComponent extends PositionComponent {
   void onLoad() {
     super.onLoad();
     
-    // Add glowing sphere visual
-    add(CircleComponent(
-        radius: 5,
-        paint: Paint()..color = Colors.purpleAccent
-    ));
-    // Glow
-    add(CircleComponent(
-        radius: 8,
-        position: Vector2(-3, -3), // Re-center slightly larger circle? No, children relative to parent
-        // Actually CircleComponent position is top-left of circle bounding box.
-        // Parent size is 10,10. Radius 5 fits perfectly.
-        // Glow radius 8 -> diameter 16. Needs offset -3,-3 from 0,0 relative? 
-        // No, parent is 10x10. render centers on components position? 
-        // Wait, CircleComponent draws relative to its own position.
-        // Let's just draw in render to be safe/simple.
-    ));
+    // Visuals are handled in render
+
 
     // Move Effect
     if (isArtillery) {
