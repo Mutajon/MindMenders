@@ -1,6 +1,7 @@
 class UnitModel {
   final String name;
-  final int hp;
+  final int maxHP;
+  int currentHP;
   final int attackRange;
   final int attackValue;
   final String attackType; //artillary, melee, projectile
@@ -12,7 +13,8 @@ class UnitModel {
 
   UnitModel({
     required this.name,
-    required this.hp,
+    required this.maxHP,
+    int? currentHP,
     required this.attackRange,
     required this.attackValue,
     required this.attackType,
@@ -22,7 +24,7 @@ class UnitModel {
     this.movementPoints = 3,
     this.alliance = 'Menders',
     this.hasShield = false,
-  });
+  }) : currentHP = currentHP ?? maxHP;
 
   bool hasShield;
 }

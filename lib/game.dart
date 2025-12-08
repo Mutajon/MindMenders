@@ -820,7 +820,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     // Create and add an Archer unit at the left side
     final archerUnit = UnitModel(
       name: 'Infector',
-      hp: 2,
+      maxHP: 2,
       attackRange: 3,
       attackValue: 3,
       attackType: 'projectile',
@@ -846,7 +846,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
              occupiedTiles.add(spawnTile);
              final enemyUnit = UnitModel(
               name: enemyType,
-              hp: 2,
+              maxHP: 2,
               attackRange: 1,
               attackValue: 1,
               attackType: 'melee',
@@ -893,7 +893,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
         
         final enemyUnit = UnitModel(
           name: enemyType,
-          hp: 2,
+          maxHP: 2,
           attackRange: 1,
           attackValue: 1,
           attackType: 'melee',
@@ -1170,9 +1170,11 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
           print('${unit.unitModel.name} shield absorbed damage!');
       } else {
           print('${unit.unitModel.name} took $damage damage!');
-          // Implement actual damage logic here (requires mutable HP or kill logic)
-          // For now, if HP <= damage, remove unit
-          if (unit.unitModel.hp <= damage) { // This comparison assumes full HP check, simplified
+          // Implement actual damage logic here
+          unit.unitModel.currentHP -= damage;
+          print('Unit HP: ${unit.unitModel.currentHP} / ${unit.unitModel.maxHP}');
+          
+          if (unit.unitModel.currentHP <= 0) { 
               unit.removeFromParent();
               print('${unit.unitModel.name} destroyed!');
           }
@@ -1190,16 +1192,38 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     
     // Check for unit hover first (units are on top of tiles)
     UnitModel? newHoveredUnit;
+    UnitComponent? newHoveredComponent;
+
+    // Reset previous hover if it exists, or just manage it carefully
+    // Optimization: Keep track of hovered component instead of just model
+    
     for (final component in children.whereType<UnitComponent>()) {
       if (component.containsPoint(worldPosition)) {
         newHoveredUnit = component.unitModel;
+        newHoveredComponent = component;
         break;
       }
     }
     
     if (newHoveredUnit != hoveredUnit) {
+      // Clear previous hover visual
+      for (final component in children.whereType<UnitComponent>()) {
+          // We can't easily identifying the "previous" component from hoveredUnit model alone 
+          // without a map or iterating properly.
+          // Simpler: Set hovered = false for all, then true for new one?
+          // Or just check if component.unitModel == hoveredUnit
+          if (hoveredUnit != null && component.unitModel == hoveredUnit) {
+               component.setHovered(false);
+          }
+      }
+      
       hoveredUnit = newHoveredUnit;
       onUnitHoverChange?.call(hoveredUnit);
+      
+      // Set new hover visual
+      if (newHoveredComponent != null) {
+          newHoveredComponent.setHovered(true);
+      }
     }
     
     // Find the tile that contains this point

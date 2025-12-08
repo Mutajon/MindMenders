@@ -44,6 +44,13 @@ class UnitComponent extends PositionComponent with TapCallbacks {
     }
   }
 
+  // Hover state
+  bool _isHovered = false;
+
+  void setHovered(bool hovered) {
+    _isHovered = hovered;
+  }
+
   // Set selectable state (pulsing white halo)
   void setSelectable(bool selectable) {
     if (_isSelectable == selectable) return;
@@ -125,6 +132,44 @@ class UnitComponent extends PositionComponent with TapCallbacks {
     unitModel.hasShield = false;
   }
 
+  void _drawHealthBar(Canvas canvas, Offset center, double radius) {
+    if (unitModel.maxHP <= 0) return;
+
+    const segmentWidth = 10.0;
+    const segmentHeight = 6.0;
+    const spacing = 2.0;
+    final totalWidth = (unitModel.maxHP * segmentWidth) + ((unitModel.maxHP - 1) * spacing);
+    final barOffsetY = -25.0; // Position above unit
+
+    final startLeft = center.dx - totalWidth / 2;
+    final top = center.dy + barOffsetY;
+
+    // Draw each health segment
+    for (int i = 0; i < unitModel.maxHP; i++) {
+        final left = startLeft + i * (segmentWidth + spacing);
+        final segmentRect = Rect.fromLTWH(left, top, segmentWidth, segmentHeight);
+        
+        // 1. Draw Background (Black)
+        final bgPaint = Paint()..color = Colors.black;
+        canvas.drawRect(segmentRect, bgPaint);
+        
+        // 2. Draw Fill (Green if active, nothing if lost)
+        // If i < currentHP, this segment is active.
+        if (i < unitModel.currentHP) {
+            final fillRect = segmentRect.deflate(1.0); // Slight padding inside
+            final fillPaint = Paint()..color = const Color(0xFF00FF00); // Bright Green
+            canvas.drawRect(fillRect, fillPaint);
+        }
+        
+        // 3. Draw Border (White)
+        final borderPaint = Paint()
+            ..color = Colors.white
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.0;
+        canvas.drawRect(segmentRect, borderPaint);
+    }
+  }
+
   @override
   void render(Canvas canvas) {
     super.render(canvas);
@@ -147,6 +192,11 @@ class UnitComponent extends PositionComponent with TapCallbacks {
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
 
       canvas.drawCircle(center, radius + 4, innerGlowPaint);
+    }
+    
+    // Draw health bar above unit (Always on if selected, or if hovered)
+    if (_isSelectedForAction || _isHovered) {
+      _drawHealthBar(canvas, center, radius);
     }
     
     // Draw Shield (Green Spinner)

@@ -5,7 +5,7 @@ class UnitDatabase {
     return UnitModel(
       name: 'Manipulator',
       alliance: 'Menders',
-      hp: 3,
+      maxHP: 3,
       attackRange: 5,
       attackValue: 1,
       attackType: 'artillery',

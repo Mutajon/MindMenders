@@ -98,7 +98,7 @@ class UnitInfoOverlay extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  _buildStatRow(Icons.favorite, 'HP', hoveredUnit!.hp.toString()),
+                  _buildHealthBar(hoveredUnit!),
                   _buildStatRow(Icons.flash_on, 'Attack Range', hoveredUnit!.attackRange.toString()),
                   _buildStatRow(Icons.whatshot, 'Attack Value', hoveredUnit!.attackValue.toString()),
                   _buildStatRow(Icons.directions_walk, 'Movement', hoveredUnit!.movementPoints.toString()),
@@ -150,6 +150,36 @@ class UnitInfoOverlay extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHealthBar(UnitModel unit) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+           Icon(Icons.favorite, size: 12, color: Colors.white.withValues(alpha: 0.7)),
+           const SizedBox(width: 4),
+           Row(
+             children: List.generate(unit.maxHP, (index) {
+               final isFilled = index < unit.currentHP;
+               return Container(
+                 width: 12,
+                 height: 8,
+                 margin: const EdgeInsets.only(right: 2),
+                 decoration: BoxDecoration(
+                   color: isFilled ? const Color(0xFF00FF00) : Colors.black,
+                   border: Border.all(
+                     color: Colors.white,
+                     width: 1,
+                   ),
+                 ),
+               );
+             }),
+           ),
         ],
       ),
     );
