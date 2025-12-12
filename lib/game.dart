@@ -1,4 +1,5 @@
 import 'package:flame/components.dart';
+import 'dart:async';
 import 'package:flame/events.dart';
 import 'package:flame/effects.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
@@ -455,7 +456,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     return false;
   }
 
-  void _executeMovement(TileModel targetTile) {
+  Future<void> _executeMovement(TileModel targetTile) async {
     if (selectedUnitForMovement == null || selectedCardForExecution == null) return;
     
     // If we have a manual path, ensure we're moving to the end of it
@@ -476,10 +477,14 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     }
     
     // Capture alliance for callback since selectedUnitForMovement will be cleared
-    final unitAlliance = selectedUnitForMovement!.unitModel.alliance;
+    final unitComponent = selectedUnitForMovement!;
+    final unitAlliance = unitComponent.unitModel.alliance;
+    
+    // Consume card immediately to lock interaction
+    _consumeSelectedCard();
     
     // Move unit along path
-    selectedUnitForMovement!.moveTo(
+    await unitComponent.moveTo(
       targetTile.x, 
       targetTile.y, 
       path: movePath,
@@ -518,10 +523,59 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       },
     );
     
-    // Clear manual path
+    // Clear manual path (already done mostly strictly, but robustly here)
     _currentPath.clear();
     
-    _consumeSelectedCard();
+    // Handle Ambush (Reactionary Fire)
+    await _handleAmbush(unitComponent, targetTile);
+  }
+
+  Future<void> _handleAmbush(UnitComponent victim, TileModel tile) async {
+      // Check if tile is in danger map
+      if (!_dangerMap.containsKey(tile)) return;
+      
+      final attackers = List<UnitComponent>.from(_dangerMap[tile]!);
+      attackers.shuffle(); // Random sequence
+      
+      print('Ambush Triggered! ${attackers.length} attackers.');
+      
+      for (final attacker in attackers) {
+          // Check if victim is dead
+          if (victim.unitModel.currentHP <= 0) break;
+          
+          // Execute Attack
+          await _performAmbushAttack(attacker, victim, tile);
+          
+          // Small delay between attacks
+          await Future.delayed(const Duration(milliseconds: 300));
+      }
+  }
+
+  Future<void> _performAmbushAttack(UnitComponent attacker, UnitComponent victim, TileModel tile) async {
+      final startPos = getTilePosition(attacker.unitModel.x, attacker.unitModel.y);
+      final targetPos = getTilePosition(victim.unitModel.x, victim.unitModel.y);
+      
+      if (startPos == null || targetPos == null) return;
+      
+      final completer = Completer<void>();
+      
+      final damage = attacker.unitModel.attackValue;
+      
+      // Projectile
+      final projectile = ProjectileComponent(
+          startPos: startPos,
+          targetPos: targetPos,
+          isArtillery: attacker.unitModel.attackType == 'artillery',
+          onHit: () {
+              // Ensure we apply damage to the correct unit (victim)
+              // _applyDamage uses tile lookup. Victim should be at tile.
+              _applyDamage(tile, damage); 
+              completer.complete();
+          }
+      );
+      add(projectile);
+      
+      await completer.future;
   }
 
   // Handle tile control changes
@@ -1399,19 +1453,62 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       }
     
     
-    // Cleanup Previews for units that are NOT the current valid target
-    // This is a bit inefficient to run every move, but robust.
+    // Logic to set previews
+    bool isPreviewing = false;
+
+    // 1. Attack Preview (Existing)
     if (selectedUnitForAttack != null && hoveredTile != null && currentAttackTargets.containsKey(hoveredTile)) {
-         // Valid target hover, handled above (setPreviewDamage called)
-         // But we should ensure others are cleared?
-         // Actually, if we move from Unit A to Unit B, we need to clear A.
+          // Valid target hover, handled above (setPreviewDamage called)
+         // Logic already handled in previous block (lines 1368-1370)
+         // But we need to track that we ARE previewing to prevent cleanup
+         isPreviewing = true;
+    }
+    
+    // 2. Danger Zone Preview (New)
+    // Only if not already attacking preview, and hovering a danger tile with movement unit
+    if (!isPreviewing && selectedUnitForMovement != null && hoveredTile != null && _dangerMap.containsKey(hoveredTile)) {
+        int totalDamage = 0;
+        bool willLoseShield = selectedUnitForMovement!.unitModel.hasShield;
+        // Logic: First attack breaks shield (0 damage). Subsequent trigger normal.
+        
+        final attackers = _dangerMap[hoveredTile]!;
+        // We assume ALL attackers will hit.
+        // If shield exists, it negates the FIRST one.
+        // Which one is first? In preview, we just pick the first in list or consistent logic.
+        // To be safe/pessimistic, maybe we negate the smallest? Or just the first one.
+        // Let's negate the first one in the list for simplicity.
+        
+        for (int i = 0; i < attackers.length; i++) {
+            if (willLoseShield && i == 0) {
+                // Absorbed
+                // willLoseShield remains true
+            } else {
+                totalDamage += attackers[i].unitModel.attackValue;
+            }
+        }
+        
+        selectedUnitForMovement!.setPreviewDamage(totalDamage, willLoseShield: willLoseShield);
+        isPreviewing = true;
+    }
+
+    // Cleanup Previews
+    if (isPreviewing) {
+         // Valid target hover, ensure others are cleared
          for (final u in children.whereType<UnitComponent>()) {
-             if (u != targetUnitComponent) {
+             // If attacking: clear non-targets.
+             // If moving: clear non-movers (selectedUnitForMovement is the one showing preview)
+             
+             bool shouldClear = true;
+             
+             if (selectedUnitForAttack != null && u == targetUnitComponent) shouldClear = false;
+             if (selectedUnitForMovement != null && u == selectedUnitForMovement) shouldClear = false;
+             
+             if (shouldClear) {
                  u.setPreviewDamage(0);
              }
          }
     } else {
-         // Not hovering a valid attack target, clear all previews
+         // Not hovering a valid target, clear all previews
          for (final u in children.whereType<UnitComponent>()) {
              u.setPreviewDamage(0);
          }

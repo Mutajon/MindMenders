@@ -1,4 +1,4 @@
-import 'package:flame/components.dart';
+import "dart:async";import 'package:flame/components.dart';
 import 'package:flame/effects.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
@@ -145,8 +145,11 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
   // Damage Taking State
   ColorEffect? _damageFlashEffect;
 
-  void setPreviewDamage(int amount) {
+  bool _willLoseShield = false;
+
+  void setPreviewDamage(int amount, {bool willLoseShield = false}) {
     _previewDamageAmount = amount;
+    _willLoseShield = willLoseShield;
   }
 
   void triggerDamageReaction() {
@@ -295,7 +298,7 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
     }
     
     // Draw health bar above unit (Always on if selected, or if hovered, OR if previewing damage)
-    if (_isSelectedForAction || _isHovered || _previewDamageAmount > 0) {
+    if (_isSelectedForAction || _isHovered || _previewDamageAmount > 0 || _willLoseShield) {
       _drawHealthBar(canvas, center, radius);
     }
     
@@ -306,6 +309,16 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
             ..style = PaintingStyle.stroke
             ..strokeWidth = 3.0
             ..strokeCap = StrokeCap.round;
+            
+        // Flash shield if pending loss
+        if (_willLoseShield) {
+             final flashColor = Color.lerp(
+                const Color(0xFF69F0AE),
+                const Color(0xFFFF0000).withValues(alpha: 0.0), // Fade to transparent/red
+                _currentFlashIntensity
+             ) ?? const Color(0xFF69F0AE);
+             shieldPaint.color = flashColor;
+        }
             
         final rect = Rect.fromCircle(center: center, radius: radius + 2);
         
@@ -396,7 +409,7 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
 
 
   // Move unit to new grid coordinates with animation
-  void moveTo(
+  Future<void> moveTo(
     int newX, 
     int newY, 
     {
@@ -404,56 +417,22 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
       double stepDuration = 0.3,
       Function(TileModel)? onTileEntered,
     }
-  ) {
+  ) async {
     final game = findParent<MyGame>();
     if (game == null) return;
 
     // Update model coordinates immediately (logical position)
-    // NOTE: This might need to be deferred if we want logical position to sync with visual,
-    // but for now we keep it immediate for game state consistency.
     unitModel.x = newX;
     unitModel.y = newY;
+    
+    final completer = Completer<void>();
 
     if (path != null && path.isNotEmpty) {
       // Create a sequence of moves
-      final List<Effect> moveEffects = [];
-      double currentDelay = 0.0;
-      
-      List<TileModel> actualPath = path;
-      // If path includes current position as first element, skip it
-      // We need to check against current position, not newX/newY
-      // But wait, unitModel.x/y were just updated.
-      // We should check against the *starting* position of the move.
-      // Assuming path[0] is start and path[last] is end.
-      
-      // If the first tile in path is where we currently are (visually), skip it
-      // We can check if path.first matches the unit's position BEFORE the move.
-      // But we just updated unitModel.
-      
-      // Let's rely on the path passed in. If it starts with current tile, skip it.
-      // The caller (MyGame) usually passes [start, ..., end].
-      
-      // We need to be careful about "skipping". If we skip, we don't animate to it.
-      // But we might still want to trigger onTileEntered for it? 
-      // Probably not, as we are already there.
-      
-      // Logic:
-      // 1. Filter path to only future tiles.
-      // 2. For each future tile, add MoveToEffect.
-      // 3. Add a callback effect *after* the move effect to trigger onTileEntered.
-      
-      // Since we can't easily chain effects with delays in a simple loop without a SequenceEffect,
-      // and SequenceEffect takes a list of effects.
-      
-      // Let's build a SequenceEffect.
-      
       final List<Effect> sequenceSteps = [];
-      
-      // Check if first tile is current position (approx)
-      // We can use the game's getTilePosition to check distance
       final currentPos = position.clone();
       
-      print('Unit moving from $currentPos. Path length: ${actualPath.length}');
+      List<TileModel> actualPath = path;
       
       for (int i = 0; i < actualPath.length; i++) {
         final tile = actualPath[i];
@@ -461,13 +440,7 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
         
         if (targetPos != null) {
           final dist = targetPos.distanceTo(currentPos);
-          // Skip if we are already at this position (start tile)
-          if (dist < 1.0) {
-            print('Skipping start tile at $targetPos (dist: $dist)');
-            continue;
-          }
-          
-          print('Adding move step to $targetPos');
+          if (dist < 1.0) continue;
           
           sequenceSteps.add(
             MoveEffect.to(
@@ -477,7 +450,6 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
                 curve: Curves.linear,
               ),
               onComplete: () {
-                print('Reached tile (${tile.x}, ${tile.y})');
                 onTileEntered?.call(tile);
               },
             ),
@@ -486,16 +458,23 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
       }
       
       if (sequenceSteps.isNotEmpty) {
-        print('Starting sequence with ${sequenceSteps.length} steps');
-        add(SequenceEffect(sequenceSteps));
+        add(SequenceEffect(
+            sequenceSteps,
+            onComplete: () {
+                completer.complete();
+            }
+        ));
       } else {
-        print('No steps generated for path!');
+        completer.complete();
       }
       
     } else {
       // Direct movement (fallback)
       final targetPos = game.getTilePosition(newX, newY);
-      if (targetPos == null) return;
+      if (targetPos == null) {
+          completer.complete();
+          return completer.future;
+      }
 
       add(
         MoveEffect.to(
@@ -505,19 +484,17 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
             curve: Curves.elasticOut,
           ),
           onComplete: () {
-            // Trigger callback for final tile
              if (onTileEntered != null) {
-               // We need the TileModel for newX, newY
-               // This is a bit hacky as we don't have the tile object here easily without querying game
                final tile = game.gridData.getTileAt(newX, newY);
-               if (tile != null) {
-                 onTileEntered(tile);
-               }
+               if (tile != null) onTileEntered(tile);
              }
+             completer.complete();
           },
         ),
       );
     }
+    
+    return completer.future;
   }
 }
 
