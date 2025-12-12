@@ -131,3 +131,4 @@ UnitModel? hoveredUnit
 ## Agent Instructions
 
 - **NEVER PUSH**: Do not run `git push` unless explicitly instructed by the user.
+- **Automated Verification**: After making changes to the codebase, ALWAYS try to hot reload (if running) or build, and explicitly check the terminal output for errors. If errors exist, FIX THEM immediately.

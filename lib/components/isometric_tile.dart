@@ -119,6 +119,27 @@ class IsometricTile extends PositionComponent with TapCallbacks {
       canvas.drawPath(path, borderPaint);
     }
     
+    // Draw Danger Icon (Warning Amber Rounded)
+    if (_isDanger) {
+        final iconData = Icons.warning_amber_rounded;
+        final textPainter = TextPainter(
+          text: TextSpan(
+            text: String.fromCharCode(iconData.codePoint),
+            style: TextStyle(
+              fontSize: 24,
+              fontFamily: iconData.fontFamily,
+              color: const Color(0xFFFF0000).withValues(alpha: 0.3), // 30% Transparent Red
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        );
+        textPainter.layout();
+        textPainter.paint(
+          canvas,
+          Offset(-textPainter.width / 2, -textPainter.height / 2),
+        );
+    }
+    
     canvas.restore();
   }
 
@@ -130,6 +151,13 @@ class IsometricTile extends PositionComponent with TapCallbacks {
     _highlightColor = color;
   }
   
+  // Danger state (Warning icon)
+  bool _isDanger = false;
+  
+  void setIsDanger(bool isDanger) {
+    _isDanger = isDanger;
+  }
+
   // Deprecated shim if needed, or just remove
   void setMovementTarget(bool isTarget) {
      if (isTarget) {

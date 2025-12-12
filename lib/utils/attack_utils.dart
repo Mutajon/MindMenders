@@ -82,4 +82,51 @@ class AttackUtils {
 
     return targets;
   }
+
+  /// Get the attack path from start to target, respecting blocking rules.
+  /// Returns null if no valid linear path exists.
+  List<TileModel>? getAttackPath(int startX, int startY, int targetX, int targetY, String attackType) {
+    // Check all 6 directions
+    final directions = [
+      (1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1)
+    ];
+
+    for (final dir in directions) {
+         final path = <TileModel>[];
+         bool found = false;
+         
+         // Raycast up to grid size (15 safe upper bound)
+         for (int i = 1; i <= 15; i++) {
+             final cx = startX + dir.$1 * i;
+             final cy = startY + dir.$2 * i;
+             
+             if (cx == targetX && cy == targetY) {
+                 found = true;
+             }
+             
+             final tile = gridData.getTileAt(cx, cy);
+             if (tile == null) break; // Off map
+             
+             path.add(tile);
+             
+             // Blocking check
+             if (attackType == 'projectile' && tile.blockShots) {
+                 if (found) {
+                     break; 
+                 } else {
+                     break; 
+                 }
+             }
+             
+             if (found) break;
+         }
+         
+         if (found) {
+             // Validate artillery min range
+             if (attackType == 'artillery' && path.length == 1) return null;
+             return path;
+         }
+    }
+    return null;
+  }
 }

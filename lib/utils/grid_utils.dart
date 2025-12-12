@@ -118,4 +118,32 @@ class GridUtils {
            (dx == 1 && dy == 1) ||
            (dx == -1 && dy == -1);
   }
+
+  /// Get all tiles within a certain range (in number of steps/hexes)
+  List<(int, int)> getTilesInRange(int startX, int startY, int range) {
+    final visited = <(int, int)>{};
+    final queue = <(int, int, int)>[(startX, startY, 0)];
+    final result = <(int, int)>[];
+    
+    visited.add((startX, startY));
+    
+    while (queue.isNotEmpty) {
+      final current = queue.removeAt(0);
+      final cx = current.$1;
+      final cy = current.$2;
+      final dist = current.$3;
+      
+      if (dist > 0) result.add((cx, cy));
+      
+      if (dist < range) {
+        for (final n in getNeighbors(cx, cy)) {
+           if (!visited.contains(n)) {
+             visited.add(n);
+             queue.add((n.$1, n.$2, dist + 1));
+           }
+        }
+      }
+    }
+    return result;
+  }
 }

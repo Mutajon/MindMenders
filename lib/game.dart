@@ -901,6 +901,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
 
   void newTurn() {
     print('Starting new turn...');
+    _updateDangerZones(); // Update danger zones at start of player turn
     drawCards(5);
   }
 
@@ -1011,6 +1012,79 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       // We need to update _basePosition after move?
       // Or make _basePosition public/setter.
     }
+  }
+
+  
+  // Danger Zone Logic (Hive Attack Ranges)
+  // Map<DangerTile, List<SourceUnit>>
+  final Map<TileModel, List<UnitComponent>> _dangerMap = {};
+  final List<AttackPathIndicator> _activeDangerPaths = [];
+
+  void _updateDangerZones() {
+     // Clear previous state
+     for (final tileComp in children.whereType<IsometricTile>()) {
+         tileComp.setIsDanger(false);
+     }
+     _dangerMap.clear();
+     
+     // Find all Hive units
+     final hiveUnits = children.whereType<UnitComponent>().where((u) => u.unitModel.alliance == 'Hive');
+     
+     for (final unit in hiveUnits) {
+         // Calculate attackable tiles for this unit
+         // Note: calculateAttackTargets usually returns tiles containing valid targets (units).
+         // But the user wants "tiles the AI can attack", implying range. 
+         // We might need to adjust AttackUtils or use a heuristic here.
+         // AttackUtils.calculateAttackTargets uses `gridData` and checks for occupied tiles usually.
+         // Actually, let's look at AttackUtils implementation in our head: usually checks if tile is occupied by enemy.
+         // But "warning" usually implies "don't step here".
+         // Use PathfindingUtils or AttackUtils to find all tiles IN RANGE and VISIBLE.
+         
+         // Let's assume we want ALL tiles in range that line-of-sight isn't blocked.
+         // We can use attackUtils.calculateAttackTargets but relax the "contains enemy" check?
+         // No, calculateAttackTargets is specifically for targeting units.
+         
+         // Let's iterate all tiles in range manually using GridUtils
+         final visibleTiles = gridUtils.getTilesInRange(unit.unitModel.x, unit.unitModel.y, unit.unitModel.attackRange);
+         
+         for (final tilePoint in visibleTiles) {
+             final tile = gridData.getTileAt(tilePoint.$1, tilePoint.$2);
+             if (tile == null) continue;
+             
+             // Check Line of Sight
+             // Only relevant for Projectile/Melee? Artillery usually ignores LOS?
+             bool hasLOS = true;
+             if (unit.unitModel.attackType != 'artillery') {
+                 // Simple LOS check: trace line using AttackUtils logic or similar
+                 // Re-using AttackUtils.getLineOfSight would be best if available.
+                 // Otherwise, assume clear for now or implement Bresenham.
+                 // Since we don't have access to AttackUtils inner methods easily, let's use a simplified check
+                 // or assume valid for now if simple. 
+                 
+                 // Actually, let's rely on AttackUtils to get the path. If path exists, it's valid.
+                 // We can call `gridUtils.getLine`?
+                 
+                 final path = attackUtils.getAttackPath(
+                     unit.unitModel.x, unit.unitModel.y, 
+                     tile.x, tile.y, 
+                     unit.unitModel.attackType
+                 );
+                 
+                 if (path == null) hasLOS = false;
+             }
+             
+             if (hasLOS) {
+                 if (!_dangerMap.containsKey(tile)) {
+                     _dangerMap[tile] = [];
+                 }
+                 _dangerMap[tile]!.add(unit);
+                 
+                 // Update Visual
+                 final tileComp = getTileAt(tile.x, tile.y);
+                 tileComp?.setIsDanger(true);
+             }
+         }
+     }
   }
 
   // Attack State
@@ -1224,6 +1298,55 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       // Update movement arrow
       _updateMovementArrow(hoveredTile);
       
+      // Update Danger Zone Visualization (Hover)
+      // Clear previous danger paths
+       for (final p in _activeDangerPaths) {
+           p.removeFromParent();
+       }
+       _activeDangerPaths.clear();
+      
+      if (hoveredTile != null && _dangerMap.containsKey(hoveredTile)) {
+          // Show trajectories from all Hive units targeting this tile
+          final attackers = _dangerMap[hoveredTile]!;
+          for (final attacker in attackers) {
+               // Calculate path points
+               final pathPoints = <Vector2>[];
+               final startPos = getTilePosition(attacker.unitModel.x, attacker.unitModel.y);
+               final endPos = getTilePosition(hoveredTile!.x, hoveredTile!.y);
+               
+               if (startPos != null && endPos != null) {
+                   pathPoints.add(startPos);
+                   // Add intermediate points if needed (e.g. for projectile path)
+                   // For now, straight line? Or follow grid center?
+                   // If we have access to the full tile path, better.
+                   // Let's re-calculate path for visual
+                   final tilePath = attackUtils.getAttackPath(
+                       attacker.unitModel.x, attacker.unitModel.y,
+                       hoveredTile!.x, hoveredTile!.y,
+                       attacker.unitModel.attackType
+                   );
+                   
+                   if (tilePath != null) {
+                       for (final t in tilePath) {
+                           final p = getTilePosition(t.x, t.y);
+                           if (p != null) pathPoints.add(p);
+                       }
+                   } else {
+                       // Fallback straight line
+                       pathPoints.add(endPos); 
+                   }
+                   
+                   final indicator = AttackPathIndicator(
+                       pathPoints: pathPoints,
+                       type: attacker.unitModel.attackType == 'artillery' ? AttackPathType.artillery : AttackPathType.projectile,
+                       color: const Color(0xFFFF0000).withOpacity(0.5), // Red trajectory
+                   );
+                   add(indicator);
+                   _activeDangerPaths.add(indicator);
+               }
+          }
+      }
+      
       // Update Attack Path and Damage Preview
       if (hoveredTile == null) {
           if (_activeAttackPath != null) {
@@ -1293,7 +1416,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
              u.setPreviewDamage(0);
          }
     }
-  }
+    }
   }
   
   // Expose debug commands to browser console

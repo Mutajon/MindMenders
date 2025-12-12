@@ -10,6 +10,7 @@ enum AttackPathType {
 class AttackPathIndicator extends PositionComponent {
   final List<Vector2> pathPoints;
   final AttackPathType type;
+  final Color color;
   
   // Neural signal properties
   final List<double> _signals = [];
@@ -20,6 +21,7 @@ class AttackPathIndicator extends PositionComponent {
   AttackPathIndicator({
     required this.pathPoints,
     required this.type,
+    this.color = const Color(0xFFE1BEE7),
   });
 
   @override
@@ -62,9 +64,7 @@ class AttackPathIndicator extends PositionComponent {
       if (_signals.isEmpty || pathPoints.length < 2) return;
       
       final glowPaint = Paint()
-        ..color = type == AttackPathType.projectile 
-            ? const Color(0xFFF3E5F5).withValues(alpha: 0.9) // Very light purple
-            : const Color(0xFFE1BEE7).withValues(alpha: 0.9) // Light purple
+        ..color = color.withValues(alpha: 0.9)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3.0
         ..strokeCap = StrokeCap.round
@@ -142,7 +142,7 @@ class AttackPathIndicator extends PositionComponent {
 
   void _renderProjectilePath(Canvas canvas) {
     final paint = Paint()
-      ..color = const Color(0xFFE1BEE7) // Lighter purple
+      ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.0
       ..strokeCap = StrokeCap.round;
@@ -196,7 +196,7 @@ class AttackPathIndicator extends PositionComponent {
     }
     
     final paint = Paint()
-        ..color = dotColor
+        ..color = color
         ..style = PaintingStyle.fill;
 
     for (int i = 0; i < points.length; i++) {
