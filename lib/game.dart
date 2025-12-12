@@ -537,7 +537,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     if (onControlChange == null) return;
     
     int totalControllable = 0;
-    int motherCount = 0; // AI/Mother
+    int hiveCount = 0; // AI/Hive
     int mendersCount = 0;
     int neutralCount = 0;
     
@@ -549,9 +549,8 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
                     case 'menders':
                         mendersCount++;
                         break;
-                    case 'ai': // Assuming 'ai' equates to Mother based on log output
-                    case 'mother':
-                        motherCount++;
+                    case 'hive': // AI/Hive
+                        hiveCount++;
                         break;
                     default:
                         neutralCount++;
@@ -563,7 +562,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     if (totalControllable == 0) return;
     
     onControlChange!({
-        'Mother': motherCount / totalControllable,
+        'Hive': hiveCount / totalControllable,
         'Menders': mendersCount / totalControllable,
         'Neutral': neutralCount / totalControllable,
     });
@@ -748,7 +747,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     // Take top N
     for (int i = 0; i < enemyTileCount; i++) {
       if (i < controllableTiles.length) {
-        tileControlChange(controllableTiles[i], 'AI');
+        tileControlChange(controllableTiles[i], 'Hive');
       }
     }
 
@@ -792,98 +791,66 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     archerSpawn ??= gridData.getTileAt(0, 5) ?? TileModel(x: 0, y: 5, type: 'Dendrite', description: 'Fallback', walkable: true);
 
     // Create and add a demo unit at grid center
-    // Create and add a demo unit at grid center
-    final demoUnit = UnitDatabase.getManipulator(knightSpawn.x, knightSpawn.y);
-    final unitComponent = UnitComponent(unitModel: demoUnit);
-    add(unitComponent);
-
-    // Create and add an Archer unit at the left side
-    final archerUnit = UnitModel(
-      name: 'Infector',
-      maxHP: 2,
-      attackRange: 3,
-      attackValue: 3,
-      attackType: 'projectile',
-      specialAbility: 'Double Shot',
-      x: archerSpawn.x,
-      y: archerSpawn.y,
-      movementPoints: 3,
-    );
-    final archerComponent = UnitComponent(unitModel: archerUnit);
-    add(archerComponent);
+    // Track occupied tiles to prevent overlap
+    final occupiedTiles = <TileModel>{};
     
-    // Spawn Enemies
-    final occupiedTiles = {knightSpawn, archerSpawn};
-    
-    if (level.startingEnemyCoordinates != null && level.startingEnemyCoordinates!.isNotEmpty) {
-       // Spawn at specific coords
-       for (int i = 0; i < level.startingEnemyCoordinates!.length; i++) {
-          final p = level.startingEnemyCoordinates![i];
-          final enemyType = i < level.startingEnemyTypes.length ? level.startingEnemyTypes[i] : level.startingEnemyTypes[0];
-          
-          final spawnTile = gridData.getTileAt(p.x, p.y);
-          if (spawnTile != null) {
-             occupiedTiles.add(spawnTile);
-             final enemyUnit = UnitModel(
-              name: enemyType,
-              maxHP: 2,
-              attackRange: 1,
-              attackValue: 1,
-              attackType: 'melee',
-              specialAbility: 'None',
-              x: spawnTile.x,
-              y: spawnTile.y,
-              movementPoints: 2,
-              alliance: 'Mother',
-            );
-            add(UnitComponent(unitModel: enemyUnit));
-          }
-       }
-    } else {
-      // Random placement
-      final possibleTiles = <TileModel>[];
-      for (int x = 0; x < gridData.gridSize; x++) {
-        for (int y = 0; y < gridData.gridSize; y++) {
-          final tile = gridData.getTileAt(x, y);
-          if (tile != null && tile.walkable && !occupiedTiles.contains(tile)) {
-             possibleTiles.add(tile);
+    // Helper to find random valid tile
+    TileModel? findRandomTile({required bool Function(TileModel) filter}) {
+      final candidates = <TileModel>[];
+      for (var row in gridData.tiles) {
+        for (var tile in row) {
+          if (tile.walkable && !occupiedTiles.contains(tile) && filter(tile)) {
+            candidates.add(tile);
           }
         }
       }
-      
-      // Sort to prefer AI tiles
-      possibleTiles.sort((a, b) {
-        if (a.alliance == 'AI' && b.alliance != 'AI') return -1;
-        if (a.alliance != 'AI' && b.alliance == 'AI') return 1;
-        return 0;
-      });
-      
-      // Shuffle within groups (AI and Neutral) to ensure randomness
-      final aiTiles = possibleTiles.where((t) => t.alliance == 'AI').toList()..shuffle();
-      final neutralTiles = possibleTiles.where((t) => t.alliance != 'AI').toList()..shuffle();
-      final spawnCandidates = [...aiTiles, ...neutralTiles];
-      
-      for (int i = 0; i < level.startingEnemiesCount; i++) {
-        if (i >= spawnCandidates.length) break;
-        
-        final spawnTile = spawnCandidates[i];
-        final enemyType = level.startingEnemyTypes[i % level.startingEnemyTypes.length];
-        
-        occupiedTiles.add(spawnTile);
-        
-        final enemyUnit = UnitModel(
-          name: enemyType,
-          maxHP: 2,
-          attackRange: 1,
-          attackValue: 1,
-          attackType: 'melee',
-          specialAbility: 'None',
-          x: spawnTile.x,
-          y: spawnTile.y,
-          movementPoints: 2,
-          alliance: 'Mother',
-        );
-        add(UnitComponent(unitModel: enemyUnit));
+      if (candidates.isEmpty) return null;
+      return candidates[DateTime.now().microsecondsSinceEpoch % candidates.length];
+    }
+
+    // Spawn Menders (Bottom 4 rows)
+    final menderSpawnFilter = (TileModel t) => t.y >= gridData.gridSize - 4;
+    
+    // Manipulator
+    final manipulatorTile = findRandomTile(filter: menderSpawnFilter);
+    if (manipulatorTile != null) {
+      occupiedTiles.add(manipulatorTile);
+      final manipulator = UnitDatabase.create('Manipulator', manipulatorTile.x, manipulatorTile.y);
+      add(UnitComponent(unitModel: manipulator));
+    }
+
+    // Crazy Nina
+    final ninaTile = findRandomTile(filter: menderSpawnFilter);
+    if (ninaTile != null) {
+      occupiedTiles.add(ninaTile);
+      final nina = UnitDatabase.create('Crazy Nina', ninaTile.x, ninaTile.y);
+      add(UnitComponent(unitModel: nina));
+    }
+    
+    // Spawn Hive Units (In Hive Controlled Territory)
+    final hiveSpawnFilter = (TileModel t) => t.alliance == 'Hive';
+    
+    // Terminator
+    final terminatorTile = findRandomTile(filter: hiveSpawnFilter);
+    if (terminatorTile != null) {
+        occupiedTiles.add(terminatorTile);
+        final terminator = UnitDatabase.create('Terminator', terminatorTile.x, terminatorTile.y);
+        add(UnitComponent(unitModel: terminator));
+    }
+
+    // Sweeper
+    final sweeperTile = findRandomTile(filter: hiveSpawnFilter);
+    if (sweeperTile != null) {
+        occupiedTiles.add(sweeperTile);
+        final sweeper = UnitDatabase.create('Sweeper', sweeperTile.x, sweeperTile.y);
+        add(UnitComponent(unitModel: sweeper));
+    }
+    
+    // Initial capture for new units
+    for (final unit in children.whereType<UnitComponent>()) {
+      final tile = gridData.getTileAt(unit.unitModel.x, unit.unitModel.y);
+      if (tile != null && tile.controllable && tile.alliance.toLowerCase() == 'neutral') {
+        tileControlChange(tile, unit.unitModel.alliance);
       }
     }
     
@@ -927,12 +894,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     
     // Initialize control for starting units
     // Capture tiles they are standing on
-    for (final unit in [unitComponent, archerComponent]) {
-      final tile = gridData.getTileAt(unit.unitModel.x, unit.unitModel.y);
-      if (tile != null && tile.controllable && tile.alliance.toLowerCase() == 'neutral') {
-        tileControlChange(tile, unit.unitModel.alliance);
-      }
-    }
+    // Initial control capture handled above
   }
 
 

@@ -10,7 +10,7 @@ class UnitInfoOverlay extends StatelessWidget {
   });
 
   Color _getUnitColor(UnitModel unit) {
-    if (unit.alliance == 'Mother') {
+    if (unit.alliance == 'Hive') {
       return const Color(0xFFEF5350); // Red
     }
     if (unit.alliance == 'Menders') {
@@ -25,6 +25,8 @@ class UnitInfoOverlay extends StatelessWidget {
       case 'manipulator': return Icons.shield;
       case 'sweeper': return Icons.cleaning_services;
       case 'devourer': return Icons.dangerous;
+      case 'crazy nina': return Icons.local_fire_department;
+      case 'terminator': return Icons.android;
       default: return Icons.person;
     }
   }

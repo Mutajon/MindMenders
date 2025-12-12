@@ -10,7 +10,7 @@ class ControlBarOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final motherPercent = percentages['Mother'] ?? 0.0;
+    final hivePercent = percentages['Hive'] ?? 0.0;
     final mendersPercent = percentages['Menders'] ?? 0.0;
     final neutralPercent = percentages['Neutral'] ?? 1.0;
 
@@ -51,7 +51,7 @@ class ControlBarOverlay extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildPercentageLabel('MOTHER', motherPercent, const Color(0xFFFF4444)),
+                  _buildPercentageLabel('HIVE', hivePercent, const Color(0xFFFF4444)),
                   _buildPercentageLabel('NEUTRAL', neutralPercent, const Color(0xFF888888)),
                   _buildPercentageLabel('MENDERS', mendersPercent, const Color(0xFF4488FF)),
                 ],
@@ -81,10 +81,10 @@ class ControlBarOverlay extends StatelessWidget {
                       // Progress segments
                       Row(
                         children: [
-                          // Mother (Red) - Left with glow
-                          if (motherPercent > 0)
+                          // Hive (Red) - Left with glow
+                          if (hivePercent > 0)
                             Expanded(
-                              flex: (motherPercent * 1000).toInt(),
+                              flex: (hivePercent * 1000).toInt(),
                               child: Container(
                                 decoration: BoxDecoration(
                                   gradient: const LinearGradient(

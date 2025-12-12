@@ -78,7 +78,7 @@ class IsometricTile extends PositionComponent with TapCallbacks {
         case 'menders':
           allianceColor = const Color(0xFF448AFF).withValues(alpha: 0.5); // Blue (20% more opaque)
           break;
-        case 'ai':
+        case 'hive':
           allianceColor = const Color(0xFFFF5252).withValues(alpha: 0.3); // Red
           break;
       }

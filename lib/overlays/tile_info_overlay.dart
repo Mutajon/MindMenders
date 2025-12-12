@@ -149,8 +149,8 @@ class TileInfoOverlay extends StatelessWidget {
       case 'menders':
         return 'Menders';
       case 'ai':
-      case 'mother':
-        return 'Mother';
+      case 'hive':
+        return 'Hive';
       default:
         return 'Neutral';
     }
@@ -161,7 +161,7 @@ class TileInfoOverlay extends StatelessWidget {
       case 'menders':
         return Colors.blue;
       case 'ai':
-      case 'mother':
+      case 'hive':
         return Colors.red;
       default: // neutral
         return Colors.grey;

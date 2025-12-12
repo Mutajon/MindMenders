@@ -329,12 +329,16 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
       iconData = Icons.cleaning_services;
     } else if (unitModel.name.toLowerCase() == 'devourer') {
       iconData = Icons.dangerous;
+    } else if (unitModel.name.toLowerCase() == 'crazy nina') {
+      iconData = Icons.local_fire_department;
+    } else if (unitModel.name.toLowerCase() == 'terminator') {
+      iconData = Icons.android;
     } else {
       iconData = Icons.person;
     }
 
     // Determine color based on alliance
-    if (unitModel.alliance == 'Mother') {
+    if (unitModel.alliance == 'Hive') {
       unitColor = const Color(0xFFEF5350); // Red
     } else if (unitModel.alliance == 'Menders') {
       unitColor = const Color(0xFF42A5F5); // Blue

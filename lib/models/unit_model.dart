@@ -1,5 +1,6 @@
 class UnitModel {
   final String name;
+  final String description;
   final int maxHP;
   int currentHP;
   final int attackRange;
@@ -13,6 +14,7 @@ class UnitModel {
 
   UnitModel({
     required this.name,
+    required this.description,
     required this.maxHP,
     int? currentHP,
     required this.attackRange,
