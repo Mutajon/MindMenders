@@ -22,12 +22,18 @@ class IsometricTile extends PositionComponent with TapCallbacks {
           anchor: Anchor.center,
         );
 
+  Sprite? _dendriteSprite;
+
   @override
-  void onLoad() {
+  Future<void> onLoad() async {
     super.onLoad();
     // Apply both grid position and centering offset in onLoad
     // so tile has final position before units read it
     position = gridUtils.gridToScreen(tileModel.x, tileModel.y) + centeringOffset;
+    
+    if (tileModel.type == 'Dendrite') {
+        _dendriteSprite = await Sprite.load('battle/tiles/base_tile.png');
+    }
   }
 
   @override
@@ -40,12 +46,30 @@ class IsometricTile extends PositionComponent with TapCallbacks {
 
     // Get hex path from GridUtils (pointy-top orientation)
     final path = gridUtils.getHexPath();
+    
+    // Draw Sprite if available (Dendrite)
+    if (_dendriteSprite != null) {
+        canvas.save();
+        canvas.clipPath(path);
+        // Draw sprite to cover the tile
+        // Assuming the sprite is square/rectangular and needs to cover the hex
+        // We render it centered
+        _dendriteSprite!.render(
+            canvas,
+            position: Vector2(-size.x/2, -size.y/2),
+            size: size,
+        );
+        canvas.restore();
+    } 
 
     // Choose color based on tile type
     Color fillColor;
+    bool useFill = true;
+    
     switch (tileModel.type) {
       case 'Dendrite':
-        fillColor = const Color(0xFF808080); // Gray
+        useFill = _dendriteSprite == null; // Use fill only if sprite is missing
+        fillColor = const Color(0xFF808080); // Fallback
         break;
       case 'Brain Damage':
         fillColor = Colors.transparent; // Transparent
@@ -60,16 +84,28 @@ class IsometricTile extends PositionComponent with TapCallbacks {
         fillColor = const Color(0xFFBDBDBD);
     }
 
-    // Brighten color if hovered
+    // Brighten color if hovered (apply overlay if sprite used)
     if (_isHovered) {
-      fillColor = Color.lerp(fillColor, Colors.white, 0.3)!;
+        if (useFill) {
+            fillColor = Color.lerp(fillColor, Colors.white, 0.3)!;
+        } else {
+             // Draw overlay for interaction
+             final hoverPaint = Paint()
+                ..color = Colors.white.withValues(alpha: 0.3)
+                ..style = PaintingStyle.fill;
+             canvas.drawPath(path, hoverPaint);
+        }
     }
 
-    // Draw the tile
-    final paint = Paint()
-      ..color = fillColor
-      ..style = PaintingStyle.fill;
-    canvas.drawPath(path, paint);
+    // Draw the tile fill if needed
+    if (useFill) {
+        final paint = Paint()
+          ..color = fillColor
+          ..style = PaintingStyle.fill;
+        canvas.drawPath(path, paint);
+    }
+
+
     
     // Draw alliance overlay
     if (tileModel.controllable) {
