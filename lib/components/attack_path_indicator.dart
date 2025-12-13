@@ -64,7 +64,7 @@ class AttackPathIndicator extends PositionComponent {
       if (_signals.isEmpty || pathPoints.length < 2) return;
       
       final glowPaint = Paint()
-        ..color = color.withValues(alpha: 0.9)
+        ..color = Colors.white.withValues(alpha: 0.9) // Bright White
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3.0
         ..strokeCap = StrokeCap.round
@@ -154,8 +154,9 @@ class AttackPathIndicator extends PositionComponent {
         path.lineTo(pathPoints[i].x, pathPoints[i].y);
     }
     
-    canvas.drawPath(path, paint);
-    
+    // Draw Dashed Line
+    _drawDashedPath(canvas, path, paint);
+
     // Draw Arrow at end
     if (pathPoints.length > 1) {
         final end = pathPoints.last;
@@ -182,25 +183,40 @@ class AttackPathIndicator extends PositionComponent {
     final start = pathPoints.first;
     final end = pathPoints.last;
     
-    final dotColor = const Color(0xFFE1BEE7); // Purple 100
-    
     // Calculate bezier control point (upwards)
     final mid = (start + end) / 2;
     final control = mid + Vector2(0, -60); // Arc height
     
-    // Draw dotted curve points
-    final points = <Offset>[];
-    for (double t = 0; t <= 1.0; t += 0.05) {
-        final p = _quadraticBezier(start.toOffset(), control.toOffset(), end.toOffset(), t);
-        points.add(p);
-    }
+    // Draw dashed bezier
+    // Since Path supports quadratics, we can use _drawDashedPath directly on the curve
+    final path = Path();
+    path.moveTo(start.x, start.y);
+    path.quadraticBezierTo(control.x, control.y, end.x, end.y);
     
     final paint = Paint()
         ..color = color
-        ..style = PaintingStyle.fill;
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.0
+        ..strokeCap = StrokeCap.round;
 
-    for (int i = 0; i < points.length; i++) {
-        canvas.drawCircle(points[i], 3.0, paint);
+    _drawDashedPath(canvas, path, paint);
+  }
+  
+  void _drawDashedPath(Canvas canvas, Path path, Paint paint) {
+    final dashWidth = 10.0;
+    final dashSpace = 5.0;
+    double distance = 0.0;
+    
+    for (final metric in path.computeMetrics()) {
+      while (metric.length > 0 && distance < metric.length) {
+        double len = dashWidth;
+        if (distance + len > metric.length) len = metric.length - distance;
+        
+        final dashedPath = metric.extractPath(distance, distance + len);
+        canvas.drawPath(dashedPath, paint);
+        distance += dashWidth + dashSpace;
+      }
+      distance = 0.0; // Reset for next contour
     }
   }
   

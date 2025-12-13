@@ -415,22 +415,13 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
     {
       List<TileModel>? path, 
       double stepDuration = 0.3,
-      Function(TileModel)? onTileEntered,
+      Future<void> Function(TileModel)? onTileEntered,
     }
   ) async {
     final game = findParent<MyGame>();
     if (game == null) return;
-
-    // Update model coordinates immediately (logical position)
-    unitModel.x = newX;
-    unitModel.y = newY;
     
-    final completer = Completer<void>();
-
     if (path != null && path.isNotEmpty) {
-      // Create a sequence of moves
-      final List<Effect> sequenceSteps = [];
-      final currentPos = position.clone();
       
       List<TileModel> actualPath = path;
       
@@ -439,10 +430,9 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
         final targetPos = game.getTilePosition(tile.x, tile.y);
         
         if (targetPos != null) {
-          final dist = targetPos.distanceTo(currentPos);
-          if (dist < 1.0) continue;
+          final completer = Completer<void>();
           
-          sequenceSteps.add(
+          add(
             MoveEffect.to(
               targetPos,
               EffectController(
@@ -450,32 +440,38 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
                 curve: Curves.linear,
               ),
               onComplete: () {
-                onTileEntered?.call(tile);
+                completer.complete();
               },
             ),
           );
+          
+          // Wait for visual move to finish
+          await completer.future;
+          
+          // Update model coordinates step-by-step
+          unitModel.x = tile.x;
+          unitModel.y = tile.y;
+          
+          // Trigger logical tile enter (can be async, e.g. for ambush)
+          if (onTileEntered != null) {
+             await onTileEntered(tile);
+          }
+          
+          // Check death after callback (ambush might have killed us)
+          if (unitModel.currentHP <= 0) {
+              // Stop movement processing if dead
+              break; 
+          }
         }
-      }
-      
-      if (sequenceSteps.isNotEmpty) {
-        add(SequenceEffect(
-            sequenceSteps,
-            onComplete: () {
-                completer.complete();
-            }
-        ));
-      } else {
-        completer.complete();
       }
       
     } else {
       // Direct movement (fallback)
       final targetPos = game.getTilePosition(newX, newY);
-      if (targetPos == null) {
-          completer.complete();
-          return completer.future;
-      }
+      if (targetPos == null) return;
 
+      final completer = Completer<void>();
+      
       add(
         MoveEffect.to(
           targetPos,
@@ -484,17 +480,28 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
             curve: Curves.elasticOut,
           ),
           onComplete: () {
-             if (onTileEntered != null) {
-               final tile = game.gridData.getTileAt(newX, newY);
-               if (tile != null) onTileEntered(tile);
-             }
              completer.complete();
           },
         ),
       );
+      
+      await completer.future;
+      
+      // Update coordinates
+      unitModel.x = newX;
+      unitModel.y = newY;
+      
+      if (onTileEntered != null) {
+          final tile = game.gridData.getTileAt(newX, newY);
+          if (tile != null) await onTileEntered(tile);
+      }
     }
     
-    return completer.future;
+    // Ensure final consistency if not dead
+    if (unitModel.currentHP > 0) {
+        unitModel.x = newX;
+        unitModel.y = newY;
+    }
   }
 }
 

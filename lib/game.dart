@@ -36,6 +36,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
   final Function(UnitModel?)? onUnitHoverChange;
   final Function(DeckType?, bool)? onDeckHoverChange;
   final Function(Map<String, double>)? onControlChange;
+  final Function(bool, int)? onTileStatusChange;
   
   // Keep track of the currently highlighted tile component to update its visual state
   IsometricTile? _highlightedComponent;
@@ -69,6 +70,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     this.onUnitHoverChange,
     this.onDeckHoverChange,
     this.onControlChange,
+    this.onTileStatusChange,
   }) : super(gravity: Vector2(0, 10.0));
   
   // Input Handling
@@ -489,8 +491,13 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       targetTile.y, 
       path: movePath,
       stepDuration: 0.3, // Default speed
-      onTileEntered: (tile) {
+      onTileEntered: (tile) async {
+        
+        // Handle Ambush (Reactionary Fire) - Triggers on entering ANY danger tile
+        await _handleAmbush(unitComponent, tile);
+
         if (!tile.controllable) return;
+        if (unitComponent.unitModel.currentHP <= 0) return; // Don't capture if dead
 
         // Current tile logic:
         // 1. If Neutral, capture it.
@@ -525,16 +532,14 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     
     // Clear manual path (already done mostly strictly, but robustly here)
     _currentPath.clear();
-    
-    // Handle Ambush (Reactionary Fire)
-    await _handleAmbush(unitComponent, targetTile);
   }
 
   Future<void> _handleAmbush(UnitComponent victim, TileModel tile) async {
-      // Check if tile is in danger map
-      if (!_dangerMap.containsKey(tile)) return;
+      // Safe lookup for canonical tile to ensure map key is found
+      final canonicalTile = gridData.getTileAt(tile.x, tile.y);
+      if (canonicalTile == null || !_dangerMap.containsKey(canonicalTile)) return;
       
-      final attackers = List<UnitComponent>.from(_dangerMap[tile]!);
+      final attackers = List<UnitComponent>.from(_dangerMap[canonicalTile]!);
       attackers.shuffle(); // Random sequence
       
       print('Ambush Triggered! ${attackers.length} attackers.');
@@ -1252,18 +1257,16 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
           if (unit.unitModel.currentHP <= 0) { 
               // Delay removal slightly to show death effect or allow flash to start
               // But requirements say "unit is dead and removed".
-              // Let's allow the flash to play for a split second or just remove?
-              // User said "briefly flash for 2 seconds, and reduce... if <= 0 removed".
-              // This implies if it dies, it might be removed immediately. 
-              // Logic check: Can't flash if removed. 
-              // I will use a Future.delayed for removal if dead, to allow flash visibility?
-              // Or maybe just remove immediately if requested.
-              // "if... removed from the game".
               
               // Let's try to keep it for 0.5s to show the red flash, then remove.
               Future.delayed(const Duration(milliseconds: 500), () {
                  unit.removeFromParent();
                  print('${unit.unitModel.name} destroyed!');
+                 
+                 // If Hive unit died, update danger zones
+                 if (unit.unitModel.alliance == 'Hive') {
+                     _updateDangerZones();
+                 }
               });
           }
       }
@@ -1359,46 +1362,57 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
        }
        _activeDangerPaths.clear();
       
+      bool isDanger = false;
+      int dangerDamage = 0;
+
       if (hoveredTile != null && _dangerMap.containsKey(hoveredTile)) {
-          // Show trajectories from all Hive units targeting this tile
+          isDanger = true;
+          // Calculate total damage
           final attackers = _dangerMap[hoveredTile]!;
           for (final attacker in attackers) {
-               // Calculate path points
-               final pathPoints = <Vector2>[];
-               final startPos = getTilePosition(attacker.unitModel.x, attacker.unitModel.y);
-               final endPos = getTilePosition(hoveredTile!.x, hoveredTile!.y);
-               
-               if (startPos != null && endPos != null) {
-                   pathPoints.add(startPos);
-                   // Add intermediate points if needed (e.g. for projectile path)
-                   // For now, straight line? Or follow grid center?
-                   // If we have access to the full tile path, better.
-                   // Let's re-calculate path for visual
-                   final tilePath = attackUtils.getAttackPath(
-                       attacker.unitModel.x, attacker.unitModel.y,
-                       hoveredTile!.x, hoveredTile!.y,
-                       attacker.unitModel.attackType
-                   );
-                   
-                   if (tilePath != null) {
-                       for (final t in tilePath) {
-                           final p = getTilePosition(t.x, t.y);
-                           if (p != null) pathPoints.add(p);
-                       }
-                   } else {
-                       // Fallback straight line
-                       pathPoints.add(endPos); 
-                   }
-                   
-                   final indicator = AttackPathIndicator(
-                       pathPoints: pathPoints,
-                       type: attacker.unitModel.attackType == 'artillery' ? AttackPathType.artillery : AttackPathType.projectile,
-                       color: const Color(0xFFFF0000).withOpacity(0.5), // Red trajectory
-                   );
-                   add(indicator);
-                   _activeDangerPaths.add(indicator);
-               }
+               dangerDamage += attacker.unitModel.attackValue;
           }
+
+          // Show trajectories ONLY if we are moving a unit
+          if (selectedUnitForMovement != null) {
+              for (final attacker in attackers) {
+                   // Calculate path points
+                   final pathPoints = <Vector2>[];
+                   final startPos = getTilePosition(attacker.unitModel.x, attacker.unitModel.y);
+                   final endPos = getTilePosition(hoveredTile!.x, hoveredTile!.y);
+                   
+                   if (startPos != null && endPos != null) {
+                       pathPoints.add(startPos);
+                       final tilePath = attackUtils.getAttackPath(
+                           attacker.unitModel.x, attacker.unitModel.y,
+                           hoveredTile!.x, hoveredTile!.y,
+                           attacker.unitModel.attackType
+                       );
+                       
+                       if (tilePath != null) {
+                           for (final t in tilePath) {
+                               final p = getTilePosition(t.x, t.y);
+                               if (p != null) pathPoints.add(p);
+                           }
+                       } else {
+                           pathPoints.add(endPos); 
+                       }
+                       
+                       final indicator = AttackPathIndicator(
+                           pathPoints: pathPoints,
+                           type: attacker.unitModel.attackType == 'artillery' ? AttackPathType.artillery : AttackPathType.projectile,
+                           color: const Color(0xFFFF0000).withOpacity(0.5), // Red trajectory
+                       );
+                       add(indicator);
+                       _activeDangerPaths.add(indicator);
+                   }
+              }
+          }
+      }
+      
+      // Notify UI
+      if (onTileStatusChange != null) {
+          onTileStatusChange!(isDanger, dangerDamage);
       }
       
       // Update Attack Path and Damage Preview
@@ -1459,35 +1473,75 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     // 1. Attack Preview (Existing)
     if (selectedUnitForAttack != null && hoveredTile != null && currentAttackTargets.containsKey(hoveredTile)) {
           // Valid target hover, handled above (setPreviewDamage called)
-         // Logic already handled in previous block (lines 1368-1370)
-         // But we need to track that we ARE previewing to prevent cleanup
          isPreviewing = true;
     }
     
     // 2. Danger Zone Preview (New)
     // Only if not already attacking preview, and hovering a danger tile with movement unit
-    if (!isPreviewing && selectedUnitForMovement != null && hoveredTile != null && _dangerMap.containsKey(hoveredTile)) {
+    // We want to show cumulative damage for the WHOLE path if moving
+    if (!isPreviewing && selectedUnitForMovement != null && _currentPath.isNotEmpty) {
         int totalDamage = 0;
         bool willLoseShield = selectedUnitForMovement!.unitModel.hasShield;
-        // Logic: First attack breaks shield (0 damage). Subsequent trigger normal.
+        bool isPathInDanger = false;
         
-        final attackers = _dangerMap[hoveredTile]!;
-        // We assume ALL attackers will hit.
-        // If shield exists, it negates the FIRST one.
-        // Which one is first? In preview, we just pick the first in list or consistent logic.
-        // To be safe/pessimistic, maybe we negate the smallest? Or just the first one.
-        // Let's negate the first one in the list for simplicity.
-        
-        for (int i = 0; i < attackers.length; i++) {
-            if (willLoseShield && i == 0) {
-                // Absorbed
-                // willLoseShield remains true
-            } else {
-                totalDamage += attackers[i].unitModel.attackValue;
+        // Iterate path to calculate cumulative damage
+        // Skip first tile (current position) as we don't re-trigger entry there
+        for (int i = 0; i < _currentPath.length; i++) {
+            final tile = _currentPath[i];
+            
+            // Skip start position (no re-entry trigger)
+            if (tile.x == selectedUnitForMovement!.unitModel.x && 
+                tile.y == selectedUnitForMovement!.unitModel.y) {
+                continue;
+            }
+            
+            if (_dangerMap.containsKey(tile)) {
+                isPathInDanger = true;
+                final attackers = _dangerMap[tile]!;
+                for (final attacker in attackers) {
+                    if (willLoseShield) {
+                        // Absorb one attack
+                        willLoseShield = false; // Shield broken for subsequent attacks
+                        // Note: willLoseShield is passed to setPreviewDamage to flash the shield.
+                        // If it becomes false here, it means it WILL be lost.
+                        // So we want to pass `true` to setPreviewDamage if it WAS consumed.
+                        // The variable `willLoseShield` here tracks *active state*.
+                        // Let's rename for clarity.
+                    } else {
+                        totalDamage += attacker.unitModel.attackValue;
+                    }
+                }
             }
         }
         
-        selectedUnitForMovement!.setPreviewDamage(totalDamage, willLoseShield: willLoseShield);
+        if (isPathInDanger) {
+             // Pass initial hasShield to determine if we should flash it? 
+             // setPreviewDamage(..., willLoseShield: true) means "show shield breaking".
+             // We want to show shield breaking if it was consumed.
+             // It was consumed if `selectedUnitForMovement!.unitModel.hasShield` is true AND `willLoseShield` (current state) is false.
+             
+             bool initialShield = selectedUnitForMovement!.unitModel.hasShield;
+             bool shieldBroken = initialShield && !willLoseShield;
+             
+             selectedUnitForMovement!.setPreviewDamage(totalDamage, willLoseShield: shieldBroken);
+             isPreviewing = true;
+        }
+    } else if (!isPreviewing && selectedUnitForMovement != null && hoveredTile != null && _dangerMap.containsKey(hoveredTile)) {
+        // Fallback for single tile hover if path is empty (shouldn't happen with move selected but safety)
+        int totalDamage = 0;
+        bool activeShield = selectedUnitForMovement!.unitModel.hasShield;
+        
+        final attackers = _dangerMap[hoveredTile]!;
+        for (final attacker in attackers) {
+            if (activeShield) {
+                activeShield = false;
+            } else {
+                totalDamage += attacker.unitModel.attackValue;
+            }
+        }
+        
+        bool shieldBroken = selectedUnitForMovement!.unitModel.hasShield && !activeShield;
+        selectedUnitForMovement!.setPreviewDamage(totalDamage, willLoseShield: shieldBroken);
         isPreviewing = true;
     }
 
