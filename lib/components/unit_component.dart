@@ -1,4 +1,5 @@
 import "dart:async";import 'package:flame/components.dart';
+import 'health_bar_component.dart';
 import 'package:flame/effects.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +21,9 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
   // Halo color
   Color _haloColor = Colors.white;
   
+  // External Health Bar
+  HealthBarComponent? _healthBarComponent;
+
   void setHaloColor(Color color) {
     _haloColor = color;
   }
@@ -52,7 +56,17 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
       if (pos != null) {
         position = pos;
       }
+      
+      // Initialize Health Bar (Add to Game for global Z-ordering)
+      _healthBarComponent = HealthBarComponent(unitModel: unitModel);
+      game.add(_healthBarComponent!);
     }
+  }
+
+  @override
+  void onRemove() {
+    _healthBarComponent?.removeFromParent();
+    super.onRemove();
   }
 
   // Hover state
@@ -206,72 +220,26 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
           }
           _currentFlashIntensity = _flashTimer; // 0..1
       }
+      
+      // Update Health Bar
+      if (_healthBarComponent != null) {
+          // Position above unit
+          _healthBarComponent!.position = position + Vector2(0, -35); // Adjust offset as needed
+          
+          // Sync State
+          _healthBarComponent!.setPreviewDamage(
+              _previewDamageAmount, 
+              _willLoseShield, 
+              _currentFlashIntensity
+          );
+          
+          // Visibility Logic
+          bool shouldShow = _isSelectedForAction || _isHovered || _previewDamageAmount > 0 || _willLoseShield;
+          _healthBarComponent!.isVisible = shouldShow;
+      }
   }
 
-  void _drawHealthBar(Canvas canvas, Offset center, double radius) {
-    if (unitModel.maxHP <= 0) return;
 
-    const segmentWidth = 10.0;
-    const segmentHeight = 6.0;
-    const spacing = 2.0;
-    final totalWidth = (unitModel.maxHP * segmentWidth) + ((unitModel.maxHP - 1) * spacing);
-    final barOffsetY = -25.0; // Position above unit
-
-    final startLeft = center.dx - totalWidth / 2;
-    final top = center.dy + barOffsetY;
-
-    // Draw each health segment
-    for (int i = 0; i < unitModel.maxHP; i++) {
-        final left = startLeft + i * (segmentWidth + spacing);
-        final segmentRect = Rect.fromLTWH(left, top, segmentWidth, segmentHeight);
-        
-        // 1. Draw Background (Black)
-        final bgPaint = Paint()..color = Colors.black;
-        canvas.drawRect(segmentRect, bgPaint);
-        
-        bool isNormallyFilled = i < unitModel.currentHP;
-        bool isPreviewLost = false;
-        
-        // Calculate if this block is pending loss
-        // e.g. HP = 3, Damage = 1.
-        // i=0 (Filled), i=1 (Filled), i=2 (Filled -> Lost?)
-        // If currentHP is 3, indices 0, 1, 2 are filled.
-        // If damage is 1, the LAST one (index 2) is lost.
-        // Index >= (currentHP - damage) && Index < currentHP
-        
-        if (isNormallyFilled && _previewDamageAmount > 0) {
-            if (i >= (unitModel.currentHP - _previewDamageAmount)) {
-                isPreviewLost = true;
-            }
-        }
-        
-        // 2. Draw Fill
-        if (isNormallyFilled) {
-            final fillRect = segmentRect.deflate(1.0); // Slight padding inside
-            Paint fillPaint = Paint()..color = const Color(0xFF00FF00); // Default Bright Green
-            
-            if (isPreviewLost) {
-               // Flash from Bright Green to Red to indicate damage
-               final flashColor = Color.lerp(
-                   const Color(0xFF00FF00), 
-                   const Color(0xFFFF0000), 
-                   _currentFlashIntensity
-               ) ?? const Color(0xFF00FF00);
-               
-               fillPaint = Paint()..color = flashColor;
-            }
-            
-            canvas.drawRect(fillRect, fillPaint);
-        }
-        
-        // 3. Draw Border (White)
-        final borderPaint = Paint()
-            ..color = Colors.white
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.0;
-        canvas.drawRect(segmentRect, borderPaint);
-    }
-  }
 
   @override
   void render(Canvas canvas) {
@@ -297,10 +265,7 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
       canvas.drawCircle(center, radius + 4, innerGlowPaint);
     }
     
-    // Draw health bar above unit (Always on if selected, or if hovered, OR if previewing damage)
-    if (_isSelectedForAction || _isHovered || _previewDamageAmount > 0 || _willLoseShield) {
-      _drawHealthBar(canvas, center, radius);
-    }
+
     
     // Draw Shield (Green Spinner)
     if (unitModel.hasShield) {

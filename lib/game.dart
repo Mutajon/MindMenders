@@ -1201,6 +1201,11 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       for (final tileComp in children.whereType<IsometricTile>()) {
           tileComp.setHighlightColor(null);
       }
+      
+      // Clear unit previews
+      for (final unit in children.whereType<UnitComponent>()) {
+          unit.setPreviewDamage(0);
+      }
   }
 
   void _executeAttack(TileModel targetTile) {
