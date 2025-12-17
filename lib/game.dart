@@ -1101,7 +1101,9 @@ class MyGame extends Forge2DGame
     _energyIndicator = EnergyIndicatorComponent(
       position: Vector2(
         screenWidth / 2 - 80,
-        screenHeight - CardComponent.cardHeight - 60,
+        screenHeight -
+            CardComponent.cardHeight -
+            100, // Moved up more (60 -> 100)
       ),
       maxEnergy: 4,
     );
