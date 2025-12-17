@@ -322,7 +322,10 @@ class MyGame extends Forge2DGame
 
     // Create Visual Border
     final baseBlue = HSVColor.fromColor(const Color(0xFF448AFF));
-    final border = MovementBorderComponent(baseColor: baseBlue.toColor());
+    final border = MovementBorderComponent(
+      baseColor: baseBlue.toColor(),
+      priority: 200,
+    ); // Render above tiles (0) and glow (100)
     add(border);
 
     final borderTiles = reachableTiles.toSet();
@@ -538,6 +541,17 @@ class MyGame extends Forge2DGame
 
         int tilesCapturedThisStep = 0;
 
+        // Helper to check if a tile is in the remaining future path
+        bool isInFuturePath(TileModel candidate) {
+          final currentIndex = movePath.indexOf(tile);
+          if (currentIndex == -1) return false;
+          // Check all tiles AFTER current index
+          for (int i = currentIndex + 1; i < movePath.length; i++) {
+            if (movePath[i] == candidate) return true;
+          }
+          return false;
+        }
+
         if (tile.alliance.toLowerCase() == 'neutral') {
           // Capture current
           tileControlChange(tile, unitAlliance);
@@ -547,12 +561,16 @@ class MyGame extends Forge2DGame
           final neighbors = gridUtils.getNeighbors(tile.x, tile.y);
           for (final p in neighbors) {
             final neighbor = gridData.getTileAt(p.$1, p.$2);
+            // Skip if neighbor is null, not controllable, or NOT neutral
             if (neighbor != null &&
                 neighbor.controllable &&
                 neighbor.alliance.toLowerCase() == 'neutral') {
-              // Capture neutral neighbor
-              tileControlChange(neighbor, unitAlliance);
-              tilesCapturedThisStep++;
+              // CRITICAL FIX: Do NOT splash capture a tile if we are about to step on it!
+              if (!isInFuturePath(neighbor)) {
+                // Capture neutral neighbor
+                tileControlChange(neighbor, unitAlliance);
+                tilesCapturedThisStep++;
+              }
             }
           }
         } else if (tile.alliance != unitAlliance) {
@@ -1163,9 +1181,9 @@ class MyGame extends Forge2DGame
         MoveEffect.to(
           targetPos,
           EffectController(
-            duration: 0.5,
+            duration: 0.8,
             startDelay: delay,
-            curve: Curves.elasticOut,
+            curve: Curves.easeOutCubic,
           ),
           onComplete: () {
             component.setBasePosition(targetPos);
