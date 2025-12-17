@@ -59,8 +59,22 @@ class IsometricTile extends PositionComponent
           srcSize: Vector2(64, 48),
         ),
       };
+
+      // Load overlays
+      // Grey overlay deleted by user request
+      final imgBlue = await game.images.load(
+        'battle/tiles/dendriteOverlays/dendriteOverlayBlue.png',
+      );
+      final imgRed = await game.images.load(
+        'battle/tiles/dendriteOverlays/dendriteOverlayRed.png',
+      );
+
+      // Store in simple map for easy access by alliance key (normalized)
+      _dendriteOverlays = {'menders': Sprite(imgBlue), 'hive': Sprite(imgRed)};
     }
   }
+
+  static Map<String, Sprite>? _dendriteOverlays;
 
   @override
   void render(Canvas canvas) {
@@ -140,25 +154,54 @@ class IsometricTile extends PositionComponent
       canvas.drawPath(path, paint);
     }
 
-    // Draw alliance overlay
+    // Draw alliance overlay (Sprite-based for Dendrite, Color-based for others)
     if (tileModel.controllable) {
-      Color? allianceColor;
-      switch (tileModel.alliance.toLowerCase()) {
-        case 'menders':
-          allianceColor = const Color(
-            0xFF448AFF,
-          ).withValues(alpha: 0.5); // Blue (20% more opaque)
-          break;
-        case 'hive':
-          allianceColor = const Color(0xFFFF5252).withValues(alpha: 0.3); // Red
-          break;
-      }
+      if (tileModel.type == 'Dendrite' && _dendriteOverlays != null) {
+        // Sprite-based overlay logic
+        Sprite? overlaySprite;
+        final allianceKey = tileModel.alliance.toLowerCase();
 
-      if (allianceColor != null) {
-        final alliancePaint = Paint()
-          ..color = allianceColor
-          ..style = PaintingStyle.fill;
-        canvas.drawPath(path, alliancePaint);
+        if (allianceKey == 'neutral') {
+          // No overlay for neutral
+          overlaySprite = null;
+        } else if (allianceKey == 'menders') {
+          overlaySprite = _dendriteOverlays!['menders'];
+        } else if (allianceKey == 'hive') {
+          overlaySprite = _dendriteOverlays!['hive'];
+        } else {
+          // Default fallback for unknown alliance (treat as neutral)
+          overlaySprite = null;
+        }
+
+        if (overlaySprite != null) {
+          overlaySprite.render(
+            canvas,
+            position: Vector2(-32, -16), // Match base sprite position
+            size: Vector2(64, 48),
+          );
+        }
+      } else {
+        // Fallback or non-Dendrite legacy logic
+        Color? allianceColor;
+        switch (tileModel.alliance.toLowerCase()) {
+          case 'menders':
+            allianceColor = const Color(
+              0xFF448AFF,
+            ).withValues(alpha: 0.5); // Blue (20% more opaque)
+            break;
+          case 'hive':
+            allianceColor = const Color(
+              0xFFFF5252,
+            ).withValues(alpha: 0.3); // Red
+            break;
+        }
+
+        if (allianceColor != null) {
+          final alliancePaint = Paint()
+            ..color = allianceColor
+            ..style = PaintingStyle.fill;
+          canvas.drawPath(path, alliancePaint);
+        }
       }
     }
 
