@@ -40,6 +40,12 @@ class CardComponent extends PositionComponent
     _isHovered = true;
     _currentHoverOffset = -10;
     _updatePosition();
+
+    // Trigger Energy Preview
+    final game = findParent<MyGame>();
+    if (game != null) {
+      game.setPreviewCost(cardModel.energyCost);
+    }
   }
 
   @override
@@ -47,6 +53,12 @@ class CardComponent extends PositionComponent
     _isHovered = false;
     _currentHoverOffset = 0;
     _updatePosition();
+
+    // Clear Energy Preview
+    final game = findParent<MyGame>();
+    if (game != null) {
+      game.setPreviewCost(0);
+    }
   }
 
   @override
@@ -57,7 +69,14 @@ class CardComponent extends PositionComponent
 
     // Check energy BEFORE setting selection state
     if (!game.canPlayCard(cardModel)) {
-      game.showInsufficientEnergy();
+      // Shake Animation
+      final shake = SequenceEffect([
+        MoveEffect.by(Vector2(-5, 0), EffectController(duration: 0.05)),
+        MoveEffect.by(Vector2(10, 0), EffectController(duration: 0.05)),
+        MoveEffect.by(Vector2(-10, 0), EffectController(duration: 0.05)),
+        MoveEffect.by(Vector2(5, 0), EffectController(duration: 0.05)),
+      ]);
+      add(shake);
       return;
     }
 

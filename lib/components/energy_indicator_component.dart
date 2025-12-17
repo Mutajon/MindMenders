@@ -7,13 +7,18 @@ class EnergyIndicatorComponent extends PositionComponent {
   int currentEnergy;
 
   // Flash state
+  // Flash state
   int _previewCost = 0;
-  bool _isFlashingRed = false; // Insufficient energy
 
   // Flash animation timer
   double _flashTimer = 0.0;
   bool _flashAscending = true;
 
+  void showInsufficientEnergy() {
+    // No-op for now as we shake the card,
+    // but kept for API compatibility if game calls it.
+    // We could potentially reset flash timer here if we wanted a visual sync.
+  }
   EnergyIndicatorComponent({required Vector2 position, this.maxEnergy = 4})
     : currentEnergy = maxEnergy,
       super(position: position, size: Vector2(160, 40));
@@ -21,23 +26,10 @@ class EnergyIndicatorComponent extends PositionComponent {
   void updateEnergy(int newEnergy) {
     currentEnergy = newEnergy.clamp(0, maxEnergy);
     _previewCost = 0;
-    _isFlashingRed = false;
   }
 
   void setPreviewCost(int cost) {
     _previewCost = cost;
-    _isFlashingRed = false;
-  }
-
-  void showInsufficientEnergy() {
-    _isFlashingRed = true;
-    _previewCost = 0;
-    _flashTimer = 0.0;
-    _flashAscending = true;
-
-    // Use a separate timer for the error flash duration
-    // We'll reuse _isFlashingRed as the flag
-    // And auto-reset it in update
   }
 
   @override
@@ -92,66 +84,64 @@ class EnergyIndicatorComponent extends PositionComponent {
       // Fill if energy available
       bool isFilled = i < currentEnergy;
 
-      // Logic for flashing PREVIEW (active units about to be spent)
-      // If we have 4 energy, and cost is 2.
-      // Slots 0, 1, 2, 3 are filled.
-      // We want to flash slots 2 and 3 (the "top" ones).
-      // Indices maxEnergy-1 down to maxEnergy-cost? No.
-      // Top energy is at index currentEnergy - 1.
-      // So we flash indices from (currentEnergy - 1) down to (currentEnergy - previewCost).
+      // Logic for flashing PREVIEW
+      // Calculate how many we can afford and how many are missing
+      final int affordablePart = _previewCost > currentEnergy
+          ? currentEnergy
+          : _previewCost;
+      final int missingPart = _previewCost > currentEnergy
+          ? _previewCost - currentEnergy
+          : 0;
 
-      bool isPreviewing =
-          i < currentEnergy && i >= (currentEnergy - _previewCost);
+      // Blue Range (About to be spent): [currentEnergy - affordablePart, currentEnergy - 1]
+      final bool isBlueFlash =
+          i >= (currentEnergy - affordablePart) && i < currentEnergy;
+
+      // Red Range (Missing): [currentEnergy, currentEnergy + missingPart - 1]
+      final bool isRedFlash =
+          i >= currentEnergy && i < (currentEnergy + missingPart);
 
       if (isFilled) {
         final fillPaint = Paint()..style = PaintingStyle.fill;
 
-        if (isPreviewing) {
-          // Flashing "About to be spent"
-          // Fade alpha based on _flashTimer (0.2 to 1.0)
-          final alpha = 0.2 + (_flashTimer * 0.8);
-          fillPaint.color = const Color(
-            0xFF448AFF,
-          ).withOpacity(alpha); // Blue pulse
+        if (isBlueFlash) {
+          // BLUE Flash (Spending)
+          final alpha = 0.4 + (_flashTimer * 0.6);
+          fillPaint.color = const Color(0xFF448AFF).withOpacity(alpha);
         } else {
-          fillPaint.color = const Color(0xFF448AFF); // Standard Blue
+          fillPaint.color = const Color(0xFF448AFF); // Static Blue
         }
 
-        // Glow
-        if (!isPreviewing) {
+        // Glow (only if not flashing, or maybe keep it?)
+        // User didn't specify, but let's keep it simple.
+        canvas.drawCircle(center, radius - 2, fillPaint);
+
+        // Add glow for filled (but maybe pulse it if flashing blue?)
+        if (!isBlueFlash) {
           final glowPaint = Paint()
             ..color = const Color(0xFF448AFF).withOpacity(0.6)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
           canvas.drawCircle(center, radius, glowPaint);
         }
+      } else {
+        // Empty slot
+        if (isRedFlash) {
+          // RED Flash (Missing)
+          final alpha = 0.4 + (_flashTimer * 0.6);
+          final redPaint = Paint()
+            ..color = const Color(0xFFFF5252).withOpacity(alpha)
+            ..style = PaintingStyle.fill;
 
-        canvas.drawCircle(center, radius - 2, fillPaint);
-      } else if (_isFlashingRed && i == currentEnergy) {
-        // Flash the "next" empty slot red to indicate missing?
-        // Or just flash the whole bar red?
-        // User said: "flash in red the missing energy".
-        // Let's flash the empty slots that WOULD be needed.
+          // Draw filled red circle
+          canvas.drawCircle(center, radius - 2, redPaint);
 
-        // For simplicity, just flash the border red if insufficient.
+          // Red Glow
+          final redGlow = Paint()
+            ..color = const Color(0xFFFF5252).withOpacity(0.6 * alpha)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+          canvas.drawCircle(center, radius, redGlow);
+        }
       }
-    }
-
-    // Red flash overlay for entire component if insufficient
-    if (_isFlashingRed) {
-      // Flash opacity
-      final alpha = 0.5 + (_flashTimer * 0.5); // 0.5 to 1.0
-      final errorPaint = Paint()
-        ..color = Colors.red.withOpacity(alpha)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3;
-
-      final rect = Rect.fromLTWH(0, 0, size.x, size.y);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, Radius.circular(8)),
-        errorPaint,
-      );
-
-      // Also draw text "NO ENERGY" maybe?
     }
   }
 }

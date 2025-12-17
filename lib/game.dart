@@ -1515,7 +1515,7 @@ class MyGame extends Forge2DGame
         screenWidth / 2 - 80,
         screenHeight -
             CardComponent.cardHeight -
-            80, // Moved up 20px (60 -> 80)
+            100, // Moved up more (80 -> 100)
       );
     }
 
@@ -1886,6 +1886,11 @@ class MyGame extends Forge2DGame
   // Helper method to show "Not Enough Energy" feedback
   void showInsufficientEnergy() {
     _energyIndicator.showInsufficientEnergy();
+  }
+
+  // Helper method to set preview cost
+  void setPreviewCost(int cost) {
+    _energyIndicator.setPreviewCost(cost);
   }
 
   // Console command: Show master card pool
