@@ -550,6 +550,8 @@ class MyGame extends Forge2DGame
     // Capture alliance for callback since selectedUnitForMovement will be cleared
     final unitComponent = selectedUnitForMovement!;
     final unitAlliance = unitComponent.unitModel.alliance;
+    final startX = unitComponent.unitModel.x;
+    final startY = unitComponent.unitModel.y;
 
     // Consume card immediately to lock interaction
     _consumeSelectedCard();
@@ -561,6 +563,9 @@ class MyGame extends Forge2DGame
       path: movePath,
       stepDuration: 0.3, // Default speed
       onTileEntered: (tile) async {
+        // Skip start tile (don't re-trigger ambush or capture for tile we are leaving)
+        if (tile.x == startX && tile.y == startY) return;
+
         // Handle Ambush (Reactionary Fire) - Triggers on entering ANY danger tile
         await _handleAmbush(unitComponent, tile);
 
@@ -1423,6 +1428,13 @@ class MyGame extends Forge2DGame
   void _clearAttackState() {
     currentAttackTargets.clear();
     highlightedMovementTiles.clear();
+
+    // Clear Danger Paths
+    for (final p in _activeDangerPaths) {
+      p.removeFromParent();
+    }
+    _activeDangerPaths.clear();
+
     if (_activeAttackPath != null) {
       _activeAttackPath!.removeFromParent();
       _activeAttackPath = null;
