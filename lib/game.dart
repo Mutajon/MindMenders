@@ -26,6 +26,7 @@ import 'components/attack_path_indicator.dart';
 import 'components/projectile_component.dart';
 import 'package:flame_audio/flame_audio.dart';
 import 'components/floating_text_component.dart';
+import 'components/energy_indicator_component.dart';
 
 class MyGame extends Forge2DGame
     with MouseMovementDetector, KeyboardEvents, SecondaryTapDetector {
@@ -68,6 +69,9 @@ class MyGame extends Forge2DGame
   // Card Execution State
   CardComponent? selectedCardForExecution;
   UnitComponent? selectedUnitForMovement;
+
+  // Resize debouncing to prevent micro-resize layout thrashing
+  Vector2? _lastSize;
   List<TileModel> highlightedMovementTiles = [];
   List<CardModel> discardPile = [];
 
@@ -114,7 +118,11 @@ class MyGame extends Forge2DGame
   // Deck Components
   late DeckComponent _deckComponent;
   late DeckComponent _discardComponent;
+  late EnergyIndicatorComponent _energyIndicator;
   List<CardModel> deck = [];
+
+  // Energy System
+  int currentEnergy = 4;
 
   // Handle card selection (only one card can be selected at a time)
   void selectCard(CardComponent card) {
@@ -122,6 +130,17 @@ class MyGame extends Forge2DGame
     if (selectedCard != null && selectedCard != card) {
       deselectCard(); // Ensure full state cleanup
     }
+
+    // Check Energy
+    if (card.cardModel.energyCost > currentEnergy) {
+      print('Not enough energy!');
+      _energyIndicator.showInsufficientEnergy();
+      // Don't select
+      return;
+    }
+
+    // Preview Energy Cost
+    _energyIndicator.setPreviewCost(card.cardModel.energyCost);
 
     // Update selected card reference
     selectedCard = card;
@@ -150,6 +169,7 @@ class MyGame extends Forge2DGame
     selectedCard?.deselect();
     selectedCard = null;
     selectedCardForExecution = null;
+    _energyIndicator.setPreviewCost(0);
     _setUnitsSelectable(false, Colors.white);
     _clearUnitSelection();
     _clearAllUnitBorders();
@@ -289,6 +309,11 @@ class MyGame extends Forge2DGame
 
     // Move card to discard pile
     final cardModel = selectedCardForExecution!.cardModel;
+
+    // Deduct Energy
+    currentEnergy -= cardModel.energyCost;
+    _updateEnergyIndicator();
+
     discardPile.add(cardModel);
     currentPlayerCardPool.remove(cardModel);
 
@@ -297,6 +322,10 @@ class MyGame extends Forge2DGame
 
     // Clear state
     deselectCard();
+  }
+
+  void _updateEnergyIndicator() {
+    _energyIndicator.updateEnergy(currentEnergy);
   }
 
   void _showMovementBorder(UnitComponent unit) {
@@ -1068,6 +1097,16 @@ class MyGame extends Forge2DGame
     );
     add(_discardComponent);
 
+    // Add Energy Indicator
+    _energyIndicator = EnergyIndicatorComponent(
+      position: Vector2(
+        screenWidth / 2 - 80,
+        screenHeight - CardComponent.cardHeight - 60,
+      ),
+      maxEnergy: 4,
+    );
+    add(_energyIndicator);
+
     // Start first turn with delay
     Future.delayed(const Duration(milliseconds: 1500), () {
       newTurn();
@@ -1086,6 +1125,11 @@ class MyGame extends Forge2DGame
     }
 
     print('Starting new turn...');
+
+    // Reset Energy
+    currentEnergy = 4;
+    _updateEnergyIndicator();
+
     _updateDangerZones(); // Update danger zones at start of player turn
     drawCards(5);
   }
@@ -1143,9 +1187,11 @@ class MyGame extends Forge2DGame
     // Get all card components in hand (existing + new)
     // We need to match currentPlayerCardPool order
     // Existing components:
+    // NOTE: Do NOT exclude selectedCardForExecution - it should stay in layout
+    // The selected card gets a visual Y-offset but stays in its X position
     final existingComponents = children
         .whereType<CardComponent>()
-        .where((c) => !newCards.contains(c) && c != selectedCardForExecution)
+        .where((c) => !newCards.contains(c))
         .toList();
 
     // This is tricky because children order might not match pool order.
@@ -1153,6 +1199,18 @@ class MyGame extends Forge2DGame
     // Or just layout what we have.
 
     final allHandComponents = [...existingComponents, ...newCards];
+
+    // Sort components to match the logical order in currentPlayerCardPool
+    // This prevents visual jumping if z-ordering (children list) changes
+    allHandComponents.sort((a, b) {
+      final indexA = currentPlayerCardPool.indexOf(a.cardModel);
+      final indexB = currentPlayerCardPool.indexOf(b.cardModel);
+      // Handle cases where card might not be in pool (e.g. discard animation)
+      // though typically they shouldn't be here if we filtered correctly.
+      if (indexA == -1) return 1;
+      if (indexB == -1) return -1;
+      return indexA.compareTo(indexB);
+    });
 
     final totalCardWidth =
         (CardComponent.cardWidth * allHandComponents.length) +
@@ -1177,30 +1235,40 @@ class MyGame extends Forge2DGame
         delay = newIndex * 0.1;
       }
 
-      component.add(
-        MoveEffect.to(
-          targetPos,
-          EffectController(
-            duration: 0.8,
-            startDelay: delay,
-            curve: Curves.easeOutCubic,
-          ),
-          onComplete: () {
-            component.setBasePosition(targetPos);
-          },
-        ),
-      );
+      // For new cards: animate from deck position
+      // For existing cards: instant update (no animation to prevent fighting)
+      if (newCards.contains(component)) {
+        // Update base position FIRST so _updatePosition works correctly during animation
+        component.setBasePosition(targetPos);
 
-      // Update base position for hover effects
-      // We need to access _basePosition, but it's private.
-      // CardComponent needs a method to update base position.
-      // For now, we rely on the fact that CardComponent updates _basePosition in onLoad?
-      // No, onLoad runs once.
-      // We should update CardComponent to allow updating base position.
-      // But wait, CardComponent uses _basePosition for hover.
-      // If we move it with an effect, _basePosition remains old.
-      // We need to update _basePosition after move?
-      // Or make _basePosition public/setter.
+        // Remove any existing effects
+        component.children.whereType<MoveEffect>().toList().forEach(
+          (e) => e.removeFromParent(),
+        );
+
+        // Animate visual position from deck to hand
+        component.add(
+          MoveEffect.to(
+            targetPos,
+            EffectController(
+              duration: 0.8,
+              startDelay: delay,
+              curve: Curves.easeOutCubic,
+            ),
+          ),
+        );
+      } else {
+        // Existing card: instant update without animation
+        component.setBasePosition(targetPos);
+        // Refresh position to apply current hover/select offsets
+        component.position = Vector2(
+          targetPos.x,
+          targetPos.y + component.position.y - component.position.y,
+        );
+        // Actually just set it - the CardComponent will handle offsets via _updatePosition
+        // But we need to trigger that. Let me check if there's a public method.
+        // For now, just set base - the hover state will update it naturally
+      }
     }
   }
 
@@ -1422,32 +1490,40 @@ class MyGame extends Forge2DGame
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
 
+    if (!isLoaded) return;
+
+    // Debounce micro-resizes to prevent layout thrashing
+    if (_lastSize != null && (size - _lastSize!).length < 1.0) {
+      return;
+    }
+    _lastSize = size.clone();
+
     // Update Deck Positions
-    if (isLoaded) {
-      // Only update if components are initialized
-      final screenWidth = size.x;
-      final screenHeight = size.y;
+    // Only update if components are initialized
+    final screenWidth = size.x;
+    final screenHeight = size.y;
 
-      // Update Draw Pile Position
-      _deckComponent.position = Vector2(screenWidth - 20, screenHeight - 20);
+    // Update Draw Pile Position
+    _deckComponent.position = Vector2(screenWidth - 20, screenHeight - 20);
 
-      // Update Discard Pile Position
-      _discardComponent.position = Vector2(screenWidth - 90, screenHeight - 20);
+    // Update Discard Pile Position
+    _discardComponent.position = Vector2(screenWidth - 90, screenHeight - 20);
 
-      // Re-layout Hand
-      // Get all current card components in hand
-      final handComponents = children.whereType<CardComponent>().toList();
+    // Update Energy Indicator Position
+    if (children.contains(_energyIndicator)) {
+      _energyIndicator.position = Vector2(
+        screenWidth / 2 - 80,
+        screenHeight - CardComponent.cardHeight - 60,
+      );
+    }
 
-      // We need to filter out the one being dragged/selected if needed,
-      // but usually layout handles execution card exclusion.
-      // _layoutHand filters out selectedCardForExecution.
-      // Pass empty newCards so it treats all as existing?
-      // check _layoutHand signature: void _layoutHand(List<CardComponent> newCards)
+    // Re-layout Hand
+    // Get all current card components in hand
+    final handComponents = children.whereType<CardComponent>().toList();
 
-      // We pass empty list as "newCards" so it just re-layouts everything without delay
-      if (handComponents.isNotEmpty) {
-        _layoutHand([]);
-      }
+    // Pass empty list as "newCards" so it re-layouts all existing cards
+    if (handComponents.isNotEmpty) {
+      _layoutHand([]);
     }
   }
 

@@ -12,6 +12,7 @@ class CardDatabase {
       title: 'Basic Attack',
       description: 'Attack once',
       flavourText: 'endless possibilities at the palm of your hand',
+      energyCost: 1,
     ),
     CardModel(
       id: 'basic_move',
@@ -22,6 +23,7 @@ class CardDatabase {
       title: 'Basic Move',
       description: 'Move once',
       flavourText: 'endless possibilities at the palm of your hand',
+      energyCost: 1,
     ),
     CardModel(
       id: 'basic_defend',
@@ -32,6 +34,7 @@ class CardDatabase {
       title: 'Basic Defend',
       description: 'Defend once',
       flavourText: 'endless possibilities at the palm of your hand',
+      energyCost: 1,
     ),
   ];
 
