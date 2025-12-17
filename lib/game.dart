@@ -27,6 +27,7 @@ import 'components/projectile_component.dart';
 import 'package:flame_audio/flame_audio.dart';
 import 'components/floating_text_component.dart';
 import 'components/energy_indicator_component.dart';
+import 'components/end_turn_button_component.dart';
 
 class MyGame extends Forge2DGame
     with MouseMovementDetector, KeyboardEvents, SecondaryTapDetector {
@@ -119,7 +120,10 @@ class MyGame extends Forge2DGame
   late DeckComponent _deckComponent;
   late DeckComponent _discardComponent;
   late EnergyIndicatorComponent _energyIndicator;
-  List<CardModel> deck = [];
+  late EndTurnButtonComponent _endTurnButton;
+
+  // Deck State
+  final List<CardModel> deck = [];
 
   // Energy System
   int currentEnergy = 4;
@@ -1069,11 +1073,12 @@ class MyGame extends Forge2DGame
     final basicDefend = masterPool.firstWhere((c) => c.title == 'Basic Defend');
     final basicMove = masterPool.firstWhere((c) => c.title == 'Basic Move');
 
-    for (int i = 0; i < 12; i++)
+    // 2 Attacks, 2 Moves, 1 Defend
+    for (int i = 0; i < 2; i++)
       deck.add(basicAttack.copyWith(id: 'p_attack_$i'));
-    for (int i = 0; i < 5; i++)
-      deck.add(basicDefend.copyWith(id: 'p_defend_$i'));
-    for (int i = 0; i < 13; i++) deck.add(basicMove.copyWith(id: 'p_move_$i'));
+    for (int i = 0; i < 2; i++) deck.add(basicMove.copyWith(id: 'p_move_$i'));
+
+    deck.add(basicDefend.copyWith(id: 'p_defend_0'));
 
     // Shuffle deck
     deck.shuffle();
@@ -1109,6 +1114,13 @@ class MyGame extends Forge2DGame
     );
     add(_energyIndicator);
 
+    // Add End Turn Button
+    _endTurnButton = EndTurnButtonComponent(
+      position: Vector2(screenWidth - 80, screenHeight - 140),
+      onPressed: endTurn,
+    );
+    add(_endTurnButton);
+
     // Start first turn with delay
     Future.delayed(const Duration(milliseconds: 1500), () {
       newTurn();
@@ -1137,7 +1149,17 @@ class MyGame extends Forge2DGame
   }
 
   void drawCards(int amount) {
-    if (deck.isEmpty) return;
+    if (deck.isEmpty && discardPile.isEmpty) return;
+
+    // Reshuffle logic if deck is insufficient
+    if (deck.length < amount) {
+      if (discardPile.isNotEmpty) {
+        print('Reshuffling discard into deck...');
+        deck.addAll(discardPile);
+        discardPile.clear();
+        deck.shuffle();
+      }
+    }
 
     final drawCount = amount.clamp(0, deck.length);
     final drawnCards = deck.take(drawCount).toList();
@@ -1521,6 +1543,11 @@ class MyGame extends Forge2DGame
       );
     }
 
+    // Update End Turn Button Position
+    if (children.contains(_endTurnButton)) {
+      _endTurnButton.position = Vector2(screenWidth - 80, screenHeight - 140);
+    }
+
     // Re-layout Hand
     // Get all current card components in hand
     final handComponents = children.whereType<CardComponent>().toList();
@@ -1893,6 +1920,35 @@ class MyGame extends Forge2DGame
   // Helper method to set preview cost
   void setPreviewCost(int cost) {
     _energyIndicator.setPreviewCost(cost);
+  }
+
+  // End Turn Logic
+  void endTurn() {
+    print('Ending Player Turn...');
+
+    // Discard all cards in hand
+    discardPile.addAll(currentPlayerCardPool);
+    currentPlayerCardPool.clear();
+
+    // Clear visual components for hand
+    // (We re-layout with empty list or just trigger redraw)
+    for (final card in children.whereType<CardComponent>().toList()) {
+      card.removeFromParent();
+    }
+
+    _energyIndicator.setPreviewCost(0);
+    deselectCard();
+
+    // Trigger AI Turn
+    startAITurn();
+  }
+
+  void startAITurn() {
+    print('AI Turn logic to be implemented...');
+    // For now, just immediately start new player turn for testing loop
+    Future.delayed(const Duration(seconds: 1), () {
+      newTurn();
+    });
   }
 
   // Console command: Show master card pool
