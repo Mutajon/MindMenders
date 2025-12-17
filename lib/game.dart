@@ -1061,6 +1061,12 @@ class MyGame extends Forge2DGame
   }
 
   void newTurn() {
+    if (size.x <= 0 || size.y <= 0) {
+      // Defer turn start if size is not yet valid
+      Future.delayed(const Duration(milliseconds: 100), newTurn);
+      return;
+    }
+
     print('Starting new turn...');
     _updateDangerZones(); // Update danger zones at start of player turn
     drawCards(5);
@@ -1390,6 +1396,39 @@ class MyGame extends Forge2DGame
             _updateDangerZones();
           }
         });
+      }
+    }
+  }
+
+  @override
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
+
+    // Update Deck Positions
+    if (isLoaded) {
+      // Only update if components are initialized
+      final screenWidth = size.x;
+      final screenHeight = size.y;
+
+      // Update Draw Pile Position
+      _deckComponent.position = Vector2(screenWidth - 20, screenHeight - 20);
+
+      // Update Discard Pile Position
+      _discardComponent.position = Vector2(screenWidth - 90, screenHeight - 20);
+
+      // Re-layout Hand
+      // Get all current card components in hand
+      final handComponents = children.whereType<CardComponent>().toList();
+
+      // We need to filter out the one being dragged/selected if needed,
+      // but usually layout handles execution card exclusion.
+      // _layoutHand filters out selectedCardForExecution.
+      // Pass empty newCards so it treats all as existing?
+      // check _layoutHand signature: void _layoutHand(List<CardComponent> newCards)
+
+      // We pass empty list as "newCards" so it just re-layouts everything without delay
+      if (handComponents.isNotEmpty) {
+        _layoutHand([]);
       }
     }
   }

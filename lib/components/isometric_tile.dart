@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../models/tile_model.dart';
 import '../game.dart';
 import '../utils/grid_utils.dart';
+import 'dart:math' as math;
+import 'tile_control_glow.dart';
 
 class IsometricTile extends PositionComponent
     with TapCallbacks, HasGameReference<MyGame> {
@@ -12,7 +14,11 @@ class IsometricTile extends PositionComponent
   final Vector2 centeringOffset;
 
   bool _isHovered = false;
+
   Color? _highlightColor;
+
+  // Reference to external glow component
+  TileControlGlow? _glowComponent;
 
   IsometricTile({
     required this.tileModel,
@@ -59,22 +65,49 @@ class IsometricTile extends PositionComponent
           srcSize: Vector2(64, 48),
         ),
       };
-
-      // Load overlays
-      // Grey overlay deleted by user request
-      final imgBlue = await game.images.load(
-        'battle/tiles/dendriteOverlays/dendriteOverlayBlue.png',
-      );
-      final imgRed = await game.images.load(
-        'battle/tiles/dendriteOverlays/dendriteOverlayRed.png',
-      );
-
-      // Store in simple map for easy access by alliance key (normalized)
-      _dendriteOverlays = {'menders': Sprite(imgBlue), 'hive': Sprite(imgRed)};
     }
   }
 
-  static Map<String, Sprite>? _dendriteOverlays;
+  @override
+  void update(double dt) {
+    super.update(dt);
+
+    // Manage Glow Component
+    final alliance = tileModel.alliance.toLowerCase();
+
+    if (tileModel.controllable && alliance != 'neutral') {
+      // Should have glow
+      if (_glowComponent == null) {
+        _glowComponent = TileControlGlow(
+          position: position,
+          size: size,
+          alliance: alliance,
+        );
+        game.add(_glowComponent!);
+      } else if (_glowComponent!.alliance != alliance) {
+        // Alliance changed, replace glow
+        _glowComponent!.removeFromParent();
+        _glowComponent = TileControlGlow(
+          position: position,
+          size: size,
+          alliance: alliance,
+        );
+        game.add(_glowComponent!);
+      }
+    } else {
+      // Should NOT have glow
+      if (_glowComponent != null) {
+        _glowComponent!.removeFromParent();
+        _glowComponent = null;
+      }
+    }
+  }
+
+  @override
+  void onRemove() {
+    _glowComponent?.removeFromParent();
+    super.onRemove();
+  }
 
   @override
   void render(Canvas canvas) {
@@ -84,8 +117,21 @@ class IsometricTile extends PositionComponent
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2);
 
-    // Get hex path from GridUtils (pointy-top orientation)
-    final path = gridUtils.getHexPath();
+    // Custom path to match tile art shape better (narrower top/bottom faces)
+    final w = size.x / 2;
+    final h = size.y / 2;
+    // Standard hex is 0.5. Reducing to match "slope" better?
+    // Trying 0.25 to get closer to 2:1 isometric slopes.
+    const topWidthFactor = 0.7;
+
+    final path = Path()
+      ..moveTo(w * topWidthFactor, -h) // Top-Right
+      ..lineTo(w, 0) // Right
+      ..lineTo(w * topWidthFactor, h) // Bottom-Right
+      ..lineTo(-w * topWidthFactor, h) // Bottom-Left
+      ..lineTo(-w, 0) // Left
+      ..lineTo(-w * topWidthFactor, -h) // Top-Left
+      ..close();
 
     // Draw Sprite if available (Dendrite)
     if (tileModel.type == 'Dendrite' && _dendriteSprites != null) {
@@ -155,55 +201,8 @@ class IsometricTile extends PositionComponent
     }
 
     // Draw alliance overlay (Sprite-based for Dendrite, Color-based for others)
-    if (tileModel.controllable) {
-      if (tileModel.type == 'Dendrite' && _dendriteOverlays != null) {
-        // Sprite-based overlay logic
-        Sprite? overlaySprite;
-        final allianceKey = tileModel.alliance.toLowerCase();
-
-        if (allianceKey == 'neutral') {
-          // No overlay for neutral
-          overlaySprite = null;
-        } else if (allianceKey == 'menders') {
-          overlaySprite = _dendriteOverlays!['menders'];
-        } else if (allianceKey == 'hive') {
-          overlaySprite = _dendriteOverlays!['hive'];
-        } else {
-          // Default fallback for unknown alliance (treat as neutral)
-          overlaySprite = null;
-        }
-
-        if (overlaySprite != null) {
-          overlaySprite.render(
-            canvas,
-            position: Vector2(-32, -16), // Match base sprite position
-            size: Vector2(64, 48),
-          );
-        }
-      } else {
-        // Fallback or non-Dendrite legacy logic
-        Color? allianceColor;
-        switch (tileModel.alliance.toLowerCase()) {
-          case 'menders':
-            allianceColor = const Color(
-              0xFF448AFF,
-            ).withValues(alpha: 0.5); // Blue (20% more opaque)
-            break;
-          case 'hive':
-            allianceColor = const Color(
-              0xFFFF5252,
-            ).withValues(alpha: 0.3); // Red
-            break;
-        }
-
-        if (allianceColor != null) {
-          final alliancePaint = Paint()
-            ..color = allianceColor
-            ..style = PaintingStyle.fill;
-          canvas.drawPath(path, alliancePaint);
-        }
-      }
-    }
+    // Draw alliance glow - Handled by TileControlGlow component now
+    // logic removed from here to fix z-ordering overlay issues
 
     // Draw highlight overlay
     if (_highlightColor != null) {
