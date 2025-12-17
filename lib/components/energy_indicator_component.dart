@@ -1,5 +1,5 @@
 import 'package:flame/components.dart';
-import 'package:flame/effects.dart';
+
 import 'package:flutter/material.dart';
 
 class EnergyIndicatorComponent extends PositionComponent {
@@ -32,19 +32,12 @@ class EnergyIndicatorComponent extends PositionComponent {
   void showInsufficientEnergy() {
     _isFlashingRed = true;
     _previewCost = 0;
+    _flashTimer = 0.0;
+    _flashAscending = true;
 
-    // Auto-clear red flash after a short duration
-    add(
-      OpacityEffect.to(
-        1.0,
-        EffectController(
-          duration: 0.5,
-          onMax: () {
-            _isFlashingRed = false;
-          },
-        ),
-      ),
-    );
+    // Use a separate timer for the error flash duration
+    // We'll reuse _isFlashingRed as the flag
+    // And auto-reset it in update
   }
 
   @override

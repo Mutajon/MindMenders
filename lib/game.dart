@@ -132,9 +132,9 @@ class MyGame extends Forge2DGame
     }
 
     // Check Energy
-    if (card.cardModel.energyCost > currentEnergy) {
+    if (!canPlayCard(card.cardModel)) {
       print('Not enough energy!');
-      _energyIndicator.showInsufficientEnergy();
+      showInsufficientEnergy();
       // Don't select
       return;
     }
@@ -1513,7 +1513,9 @@ class MyGame extends Forge2DGame
     if (children.contains(_energyIndicator)) {
       _energyIndicator.position = Vector2(
         screenWidth / 2 - 80,
-        screenHeight - CardComponent.cardHeight - 60,
+        screenHeight -
+            CardComponent.cardHeight -
+            80, // Moved up 20px (60 -> 80)
       );
     }
 
@@ -1874,6 +1876,16 @@ class MyGame extends Forge2DGame
       print('---');
     }
     print('Total cards in player pool: ${currentPlayerCardPool.length}');
+  }
+
+  // Helper method to check if a card can be played
+  bool canPlayCard(CardModel card) {
+    return currentEnergy >= card.energyCost;
+  }
+
+  // Helper method to show "Not Enough Energy" feedback
+  void showInsufficientEnergy() {
+    _energyIndicator.showInsufficientEnergy();
   }
 
   // Console command: Show master card pool

@@ -55,6 +55,12 @@ class CardComponent extends PositionComponent
     final game = findParent<MyGame>();
     if (game == null) return;
 
+    // Check energy BEFORE setting selection state
+    if (!game.canPlayCard(cardModel)) {
+      game.showInsufficientEnergy();
+      return;
+    }
+
     if (_isSelected) {
       // Deselect this card
       deselect();
@@ -263,8 +269,14 @@ class CardComponent extends PositionComponent
     );
 
     // Draw Energy Cost
+    // Check if affordable
+    final game = findParent<MyGame>();
+    final canAfford = game != null ? game.canPlayCard(cardModel) : true;
+
     final energyPaint = Paint()
-      ..color = const Color(0xFF448AFF)
+      ..color = canAfford
+          ? const Color(0xFF448AFF)
+          : const Color(0xFFD32F2F) // Blue or Red
       ..style = PaintingStyle.fill;
 
     // Circle background in top left
