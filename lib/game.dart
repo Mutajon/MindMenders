@@ -25,6 +25,7 @@ import 'utils/attack_utils.dart';
 import 'components/attack_path_indicator.dart';
 import 'components/projectile_component.dart';
 import 'package:flame_audio/flame_audio.dart';
+import 'components/floating_text_component.dart';
 
 class MyGame extends Forge2DGame
     with MouseMovementDetector, KeyboardEvents, SecondaryTapDetector {
@@ -41,6 +42,9 @@ class MyGame extends Forge2DGame
 
   // Keep track of the currently highlighted tile component to update its visual state
   IsometricTile? _highlightedComponent;
+
+  // Cache for total controllable tiles to calculate percentages efficiently
+  int _totalControllableTiles = 0;
 
   // Tile lookup map for efficient coordinate-based access
   final Map<String, IsometricTile> _tileComponents = {};
@@ -532,12 +536,12 @@ class MyGame extends Forge2DGame
         // 1. If Neutral, capture it.
         // 2. If Opposite Team, capture it (splash effect trigger).
 
-        bool captured = false;
+        int tilesCapturedThisStep = 0;
 
         if (tile.alliance.toLowerCase() == 'neutral') {
           // Capture current
           tileControlChange(tile, unitAlliance);
-          captured = true;
+          tilesCapturedThisStep++;
 
           // Capture adjacent Neutral tiles
           final neighbors = gridUtils.getNeighbors(tile.x, tile.y);
@@ -548,12 +552,25 @@ class MyGame extends Forge2DGame
                 neighbor.alliance.toLowerCase() == 'neutral') {
               // Capture neutral neighbor
               tileControlChange(neighbor, unitAlliance);
+              tilesCapturedThisStep++;
             }
           }
         } else if (tile.alliance != unitAlliance) {
           // Entered an opposing tile - Capture ONLY this tile
           tileControlChange(tile, unitAlliance);
-          captured = true;
+          tilesCapturedThisStep++;
+        }
+
+        // Show Visual Feedback for this step
+        if (tilesCapturedThisStep > 0 && _totalControllableTiles > 0) {
+          final percent =
+              (tilesCapturedThisStep / _totalControllableTiles * 100).floor();
+          if (percent > 0) {
+            final pos = getTilePosition(tile.x, tile.y);
+            if (pos != null) {
+              showControlChange(pos, percent, unitAlliance);
+            }
+          }
         }
       },
     );
@@ -628,8 +645,6 @@ class MyGame extends Forge2DGame
   }
 
   void _calculateControlPercentages() {
-    if (onControlChange == null) return;
-
     int totalControllable = 0;
     int hiveCount = 0; // AI/Hive
     int mendersCount = 0;
@@ -653,13 +668,32 @@ class MyGame extends Forge2DGame
       }
     }
 
-    if (totalControllable == 0) return;
+    _totalControllableTiles = totalControllable;
+
+    if (totalControllable == 0 || onControlChange == null) return;
 
     onControlChange!({
       'Hive': hiveCount / totalControllable,
       'Menders': mendersCount / totalControllable,
       'Neutral': neutralCount / totalControllable,
     });
+  }
+
+  void showControlChange(Vector2 position, int percentChange, String alliance) {
+    if (percentChange <= 0) return;
+
+    final color = alliance.toLowerCase() == 'menders'
+        ? const Color(0xFF448AFF) // Blue
+        : const Color(0xFFFF5252); // Red
+
+    // Create the text component
+    final text = FloatingTextComponent(
+      text: '+$percentChange%',
+      position: position + Vector2(0, -32), // Start slightly above tile center
+      color: color,
+    );
+
+    add(text);
   }
 
   // Console command: Show discard pile
