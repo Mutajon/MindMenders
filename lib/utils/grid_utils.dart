@@ -8,20 +8,19 @@ import 'package:flame/components.dart';
 /// perfect tessellation - change tileWidth/tileHeight and everything adapts.
 class GridUtils {
   // Tile dimensions - the visible size of each hex
-  final double tileWidth;   // Horizontal span of hex
-  final double tileHeight;  // Vertical span of hex
+  final double tileWidth; // Horizontal span of hex
+  final double tileHeight; // Vertical span of hex
 
   // Derived spacing values (for isometric projection)
-  late final double hStep;  // Horizontal spacing between adjacent tiles
-  late final double vStep;  // Vertical spacing for isometric depth
+  late final double hStep; // Horizontal spacing between adjacent tiles
+  late final double vStep; // Vertical spacing for isometric depth
 
-  GridUtils({
-    this.tileWidth = 64.0,
-    this.tileHeight = 32.0,
-  }) {
-    // Spacing for proper hex tessellation with isometric projection
-    hStep = tileWidth * 0.75;   // 48
-    vStep = tileHeight * 0.5;   // 16
+  GridUtils({this.tileWidth = 64.0, this.tileHeight = 32.0}) {
+    // Spacing for proper isometric diamond tessellation
+    // Standard flat-topped hex spacing is 0.75 width.
+    // We use slightly more than 0.5 height (0.6) to provide vertical spacing.
+    hStep = tileWidth * 0.82; // 48
+    vStep = tileHeight * 0.48; // 19.2 (was 16)
   }
 
   /// Convert grid coordinates to screen position (isometric projection)
@@ -50,16 +49,16 @@ class GridUtils {
   /// Get hex vertices for rendering (flat-top orientation for isometric view)
   /// This shape tessellates properly with the 0.75/0.5 spacing formula.
   List<Vector2> getHexVertices() {
-    final w = tileWidth / 2;   // Half width
-    final h = tileHeight / 2;  // Half height
+    final w = tileWidth / 2; // Half width
+    final h = tileHeight / 2; // Half height
 
     return [
-      Vector2(-w * 0.5, -h),  // Top-left
-      Vector2(w * 0.5, -h),   // Top-right
-      Vector2(w, 0),          // Right
-      Vector2(w * 0.5, h),    // Bottom-right
-      Vector2(-w * 0.5, h),   // Bottom-left
-      Vector2(-w, 0),         // Left
+      Vector2(-w * 0.5, -h), // Top-left
+      Vector2(w * 0.5, -h), // Top-right
+      Vector2(w, 0), // Right
+      Vector2(w * 0.5, h), // Bottom-right
+      Vector2(-w * 0.5, h), // Bottom-left
+      Vector2(-w, 0), // Left
     ];
   }
 
@@ -96,27 +95,28 @@ class GridUtils {
   /// For isometric hex, neighbors are at these relative positions
   List<(int, int)> getNeighbors(int x, int y) {
     return [
-      (x + 1, y),     // Right (Down-Right)
-      (x - 1, y),     // Left (Up-Left)
-      (x, y + 1),     // Lower-left (Down-Left)
-      (x, y - 1),     // Upper-right (Up-Right)
+      (x + 1, y), // Right (Down-Right)
+      (x - 1, y), // Left (Up-Left)
+      (x, y + 1), // Lower-left (Down-Left)
+      (x, y - 1), // Upper-right (Up-Right)
       (x + 1, y + 1), // Bottom (Down)
       (x - 1, y - 1), // Top (Up)
     ];
   }
+
   /// Check if two tiles are neighbors
   bool isNeighbor(int x1, int y1, int x2, int y2) {
     final dx = x2 - x1;
     final dy = y2 - y1;
-    
+
     // Check against the 6 valid neighbor offsets
     // (1,0), (-1,0), (0,1), (0,-1), (1,1), (-1,-1)
     return (dx == 1 && dy == 0) ||
-           (dx == -1 && dy == 0) ||
-           (dx == 0 && dy == 1) ||
-           (dx == 0 && dy == -1) ||
-           (dx == 1 && dy == 1) ||
-           (dx == -1 && dy == -1);
+        (dx == -1 && dy == 0) ||
+        (dx == 0 && dy == 1) ||
+        (dx == 0 && dy == -1) ||
+        (dx == 1 && dy == 1) ||
+        (dx == -1 && dy == -1);
   }
 
   /// Get all tiles within a certain range (in number of steps/hexes)
@@ -124,23 +124,23 @@ class GridUtils {
     final visited = <(int, int)>{};
     final queue = <(int, int, int)>[(startX, startY, 0)];
     final result = <(int, int)>[];
-    
+
     visited.add((startX, startY));
-    
+
     while (queue.isNotEmpty) {
       final current = queue.removeAt(0);
       final cx = current.$1;
       final cy = current.$2;
       final dist = current.$3;
-      
+
       if (dist > 0) result.add((cx, cy));
-      
+
       if (dist < range) {
         for (final n in getNeighbors(cx, cy)) {
-           if (!visited.contains(n)) {
-             visited.add(n);
-             queue.add((n.$1, n.$2, dist + 1));
-           }
+          if (!visited.contains(n)) {
+            visited.add(n);
+            queue.add((n.$1, n.$2, dist + 1));
+          }
         }
       }
     }

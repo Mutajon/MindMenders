@@ -26,7 +26,8 @@ import 'components/attack_path_indicator.dart';
 import 'components/projectile_component.dart';
 import 'package:flame_audio/flame_audio.dart';
 
-class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, SecondaryTapDetector {
+class MyGame extends Forge2DGame
+    with MouseMovementDetector, KeyboardEvents, SecondaryTapDetector {
   late GridData gridData;
   late GridUtils gridUtils;
   late AttackUtils attackUtils;
@@ -37,7 +38,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
   final Function(DeckType?, bool)? onDeckHoverChange;
   final Function(Map<String, double>)? onControlChange;
   final Function(bool, int)? onTileStatusChange;
-  
+
   // Keep track of the currently highlighted tile component to update its visual state
   IsometricTile? _highlightedComponent;
 
@@ -46,7 +47,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
 
   // Get tile component at grid coordinates
   IsometricTile? getTileAt(int x, int y) => _tileComponents['$x,$y'];
-  
+
   // Get world position of a tile center at coordinates
   Vector2? getTilePosition(int x, int y) {
     final key = '$x,$y';
@@ -55,10 +56,11 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     }
     return null;
   }
+
   // Card system
   List<CardModel> currentPlayerCardPool = [];
   CardComponent? selectedCard;
-  
+
   // Card Execution State
   CardComponent? selectedCardForExecution;
   UnitComponent? selectedUnitForMovement;
@@ -66,17 +68,21 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
   List<CardModel> discardPile = [];
 
   MyGame({
-    this.onTileHoverChange, 
+    this.onTileHoverChange,
     this.onUnitHoverChange,
     this.onDeckHoverChange,
     this.onControlChange,
     this.onTileStatusChange,
   }) : super(gravity: Vector2(0, 10.0));
-  
+
   // Input Handling
   @override
-  KeyEventResult onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
-    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+  KeyEventResult onKeyEvent(
+    KeyEvent event,
+    Set<LogicalKeyboardKey> keysPressed,
+  ) {
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.escape) {
       if (selectedCard != null) {
         deselectCard();
         return KeyEventResult.handled;
@@ -101,8 +107,6 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
 
   // ... (existing methods)
 
-
-
   // Deck Components
   late DeckComponent _deckComponent;
   late DeckComponent _discardComponent;
@@ -114,11 +118,11 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     if (selectedCard != null && selectedCard != card) {
       deselectCard(); // Ensure full state cleanup
     }
-    
+
     // Update selected card reference
     selectedCard = card;
     selectedCardForExecution = card;
-    
+
     // If it's a move card, make units selectable and highlight their zones
     if (card.cardModel.type.toLowerCase() == 'move') {
       _setUnitsSelectable(true, _getCardColor(card.cardModel.type));
@@ -126,17 +130,17 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     } else if (card.cardModel.type.toLowerCase() == 'defend') {
       // Highlight menders without shield
       _setUnitsSelectable(
-        true, 
+        true,
         _getCardColor(card.cardModel.type),
-        filter: (unit) => !unit.unitModel.hasShield
+        filter: (unit) => !unit.unitModel.hasShield,
       );
     } else if (card.cardModel.type.toLowerCase() == 'attack') {
-        // Highlight all menders that have targets? Or just all menders?
-        // Simpler to just highlight all menders for now.
-        _setUnitsSelectable(true, _getCardColor(card.cardModel.type));
+      // Highlight all menders that have targets? Or just all menders?
+      // Simpler to just highlight all menders for now.
+      _setUnitsSelectable(true, _getCardColor(card.cardModel.type));
     }
   }
-  
+
   // Deselect current card
   void deselectCard() {
     selectedCard?.deselect();
@@ -147,29 +151,36 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     _clearAllUnitBorders();
     _clearAttackState();
   }
-  
+
   Set<String> _getBlockedTiles(String excludeAlliance) {
-      final blocked = <String>{};
-      for (final u in children.whereType<UnitComponent>()) {
-           if (u.unitModel.alliance != excludeAlliance) {
-               blocked.add('${u.unitModel.x},${u.unitModel.y}');
-           }
+    final blocked = <String>{};
+    for (final u in children.whereType<UnitComponent>()) {
+      if (u.unitModel.alliance != excludeAlliance) {
+        blocked.add('${u.unitModel.x},${u.unitModel.y}');
       }
-      return blocked;
+    }
+    return blocked;
   }
 
   // Helper to set selectable state for all units
-  void _setUnitsSelectable(bool selectable, Color color, {bool Function(UnitComponent)? filter}) {
-    children.whereType<UnitComponent>().where((unit) => unit.unitModel.alliance == 'Menders').forEach((unit) {
-      if (selectable && filter != null && !filter(unit)) {
-         unit.setSelectable(false);
-         return;
-      }
-      unit.setHaloColor(color);
-      unit.setSelectable(selectable);
-    });
+  void _setUnitsSelectable(
+    bool selectable,
+    Color color, {
+    bool Function(UnitComponent)? filter,
+  }) {
+    children
+        .whereType<UnitComponent>()
+        .where((unit) => unit.unitModel.alliance == 'Menders')
+        .forEach((unit) {
+          if (selectable && filter != null && !filter(unit)) {
+            unit.setSelectable(false);
+            return;
+          }
+          unit.setHaloColor(color);
+          unit.setSelectable(selectable);
+        });
   }
-  
+
   // Helper to clear unit selection
   void _clearUnitSelection() {
     if (selectedUnitForMovement != null) {
@@ -180,53 +191,58 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     _clearTileHighlights();
     // Also clear attack selection
     if (selectedUnitForAttack != null) {
-        selectedUnitForAttack!.setSelected(false);
-        selectedUnitForAttack = null;
+      selectedUnitForAttack!.setSelected(false);
+      selectedUnitForAttack = null;
     }
   }
-  
+
   Color _getCardColor(String type) {
     switch (type.toLowerCase()) {
-      case 'attack': return const Color(0xFFE040FB); // PurpleAccent
-      case 'move': return const Color(0xFF448AFF);
-      case 'defend': return const Color(0xFF69F0AE);
-      default: return const Color(0xFFFFD700);
+      case 'attack':
+        return const Color(0xFFE040FB); // PurpleAccent
+      case 'move':
+        return const Color(0xFF448AFF);
+      case 'defend':
+        return const Color(0xFF69F0AE);
+      default:
+        return const Color(0xFFFFD700);
     }
   }
-    
+
   // Handle unit tap based on active card
   void onUnitTapped(UnitComponent unit) {
     // 1. Check for Attack Execution (Targeting an Enemy)
-    if (selectedUnitForAttack != null && selectedCardForExecution?.cardModel.type.toLowerCase() == 'attack') {
-         final targetTile = gridData.getTileAt(unit.unitModel.x, unit.unitModel.y);
-         
-         if (targetTile != null && currentAttackTargets.containsKey(targetTile)) {
-             _executeAttack(targetTile);
-             return;
-         }
+    if (selectedUnitForAttack != null &&
+        selectedCardForExecution?.cardModel.type.toLowerCase() == 'attack') {
+      final targetTile = gridData.getTileAt(unit.unitModel.x, unit.unitModel.y);
+
+      if (targetTile != null && currentAttackTargets.containsKey(targetTile)) {
+        _executeAttack(targetTile);
+        return;
+      }
     }
 
     // 2. Normal Unit Selection Logic
     final cardType = selectedCardForExecution?.cardModel.type.toLowerCase();
-    
+
     if (cardType == 'move') {
-       _handleMoveUnitSelection(unit);
+      _handleMoveUnitSelection(unit);
     } else if (cardType == 'defend') {
-       _handleDefendUnitSelection(unit);
+      _handleDefendUnitSelection(unit);
     } else if (cardType == 'attack') {
-       _handleAttackUnitSelection(unit);
+      _handleAttackUnitSelection(unit);
     } else {
-       print('DEBUG: Unknown or null card type for selection.');
+      print('DEBUG: Unknown or null card type for selection.');
     }
   }
 
   void _handleDefendUnitSelection(UnitComponent unit) {
     if (unit.unitModel.alliance != 'Menders') return;
     if (unit.unitModel.hasShield) return;
-    
+
     // Apply Shield
     unit.applyShield();
-    
+
     // Consume Card and Deselect
     _consumeSelectedCard();
   }
@@ -234,106 +250,103 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
   void _handleMoveUnitSelection(UnitComponent unit) {
     // Only allow selecting Menders units
     if (unit.unitModel.alliance != 'Menders') return;
-    
+
     // Clear any existing arrow and path from previous interactions
     if (_movementArrow != null) {
       _movementArrow!.removeFromParent();
       _movementArrow = null;
     }
     _currentPath.clear();
-    
+
     // Toggle Logic
     if (selectedUnitForMovement == unit) {
-        // Unselect (Toggle OFF)
-        unit.setSelected(false);
-        _hideMovementBorder(unit);
-        selectedUnitForMovement = null;
-        highlightedMovementTiles.clear();
-        
+      // Unselect (Toggle OFF)
+      unit.setSelected(false);
+      _hideMovementBorder(unit);
+      selectedUnitForMovement = null;
+      highlightedMovementTiles.clear();
     } else {
-        // New Selection (Switching or First Time)
-        
-        // Deselect previous
-        if (selectedUnitForMovement != null) {
-          selectedUnitForMovement!.setSelected(false);
-          _hideMovementBorder(selectedUnitForMovement!);
-        }
-        
-        selectedUnitForMovement = unit;
-        unit.setSelected(true);
-        _showMovementBorder(unit);
+      // New Selection (Switching or First Time)
+
+      // Deselect previous
+      if (selectedUnitForMovement != null) {
+        selectedUnitForMovement!.setSelected(false);
+        _hideMovementBorder(selectedUnitForMovement!);
+      }
+
+      selectedUnitForMovement = unit;
+      unit.setSelected(true);
+      _showMovementBorder(unit);
     }
   }
 
   void _consumeSelectedCard() {
     if (selectedCardForExecution == null) return;
-    
+
     // Move card to discard pile
     final cardModel = selectedCardForExecution!.cardModel;
     discardPile.add(cardModel);
     currentPlayerCardPool.remove(cardModel);
-    
+
     // Remove card component
     selectedCardForExecution!.removeFromParent();
-    
+
     // Clear state
     deselectCard();
   }
-  
-  void _showMovementBorder(UnitComponent unit) {
-       // Calculate blocked tiles (occupied by non-Menders)
-       final blockedTiles = <String>{};
-       for (final u in children.whereType<UnitComponent>()) {
-            if (u.unitModel.alliance != 'Menders') {
-                blockedTiles.add('${u.unitModel.x},${u.unitModel.y}');
-            }
-       }
 
-       // Calculate reachable tiles
-       final reachableTiles = PathfindingUtils.calculateReachableTiles(
-           startX: unit.unitModel.x,
-           startY: unit.unitModel.y,
-           range: unit.unitModel.movementPoints,
-           gridData: gridData,
-           blockedTiles: blockedTiles,
-       );
-       
-       // Update interaction state
-       highlightedMovementTiles = reachableTiles;
-         
-       // Create Visual Border
-       final baseBlue = HSVColor.fromColor(const Color(0xFF448AFF));
-       final border = MovementBorderComponent(baseColor: baseBlue.toColor());
-       add(border);
-       
-       final borderTiles = reachableTiles.toSet();
-       final currentTile = gridData.getTileAt(unit.unitModel.x, unit.unitModel.y);
-       if (currentTile != null) borderTiles.add(currentTile);
-       
-       border.updateTiles(borderTiles);
-       
-       _unitBorders[unit] = border;
+  void _showMovementBorder(UnitComponent unit) {
+    // Calculate blocked tiles (occupied by non-Menders)
+    final blockedTiles = <String>{};
+    for (final u in children.whereType<UnitComponent>()) {
+      if (u.unitModel.alliance != 'Menders') {
+        blockedTiles.add('${u.unitModel.x},${u.unitModel.y}');
+      }
+    }
+
+    // Calculate reachable tiles
+    final reachableTiles = PathfindingUtils.calculateReachableTiles(
+      startX: unit.unitModel.x,
+      startY: unit.unitModel.y,
+      range: unit.unitModel.movementPoints,
+      gridData: gridData,
+      blockedTiles: blockedTiles,
+    );
+
+    // Update interaction state
+    highlightedMovementTiles = reachableTiles;
+
+    // Create Visual Border
+    final baseBlue = HSVColor.fromColor(const Color(0xFF448AFF));
+    final border = MovementBorderComponent(baseColor: baseBlue.toColor());
+    add(border);
+
+    final borderTiles = reachableTiles.toSet();
+    final currentTile = gridData.getTileAt(unit.unitModel.x, unit.unitModel.y);
+    if (currentTile != null) borderTiles.add(currentTile);
+
+    border.updateTiles(borderTiles);
+
+    _unitBorders[unit] = border;
   }
 
   void _hideMovementBorder(UnitComponent unit) {
-      if (_unitBorders.containsKey(unit)) {
-          _unitBorders[unit]!.removeFromParent();
-          _unitBorders.remove(unit);
-      }
+    if (_unitBorders.containsKey(unit)) {
+      _unitBorders[unit]!.removeFromParent();
+      _unitBorders.remove(unit);
+    }
   }
-  
 
-  
   void _clearAllUnitBorders() {
-      _unitBorders.values.forEach((b) => b.removeFromParent());
-      _unitBorders.clear();
+    _unitBorders.values.forEach((b) => b.removeFromParent());
+    _unitBorders.clear();
   }
-  
+
   void _calculateAndHighlightMovementTiles(UnitComponent unit) {
-      // Deprecated in favor of _highlightAllUnitMovementZones, but if needed for single update:
-      // We can update just this unit's border in the map.
+    // Deprecated in favor of _highlightAllUnitMovementZones, but if needed for single update:
+    // We can update just this unit's border in the map.
   }
-  
+
   void _clearTileHighlights() {
     // Don't clear borders here, only interaction highlights
     for (final tile in highlightedMovementTiles) {
@@ -344,20 +357,20 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       tileComponent.setMovementTarget(false);
     }
     highlightedMovementTiles.clear();
-    
+
     // Clear arrow
     if (_movementArrow != null) {
       _movementArrow!.removeFromParent();
       _movementArrow = null;
     }
   }
-  
+
   // Movement arrow
   MovementPathArrow? _movementArrow;
-  
+
   // Movement border map
   final Map<UnitComponent, MovementBorderComponent> _unitBorders = {};
-  
+
   // Current manual path
   final List<TileModel> _currentPath = [];
 
@@ -366,18 +379,21 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     if (selectedUnitForMovement == null || targetTile == null) {
       return;
     }
-    
+
     // Initialize path if empty or unit changed
-    if (_currentPath.isEmpty || 
-        _currentPath.first.x != selectedUnitForMovement!.unitModel.x || 
+    if (_currentPath.isEmpty ||
+        _currentPath.first.x != selectedUnitForMovement!.unitModel.x ||
         _currentPath.first.y != selectedUnitForMovement!.unitModel.y) {
-      final startTile = gridData.getTileAt(selectedUnitForMovement!.unitModel.x, selectedUnitForMovement!.unitModel.y);
+      final startTile = gridData.getTileAt(
+        selectedUnitForMovement!.unitModel.x,
+        selectedUnitForMovement!.unitModel.y,
+      );
       if (startTile != null) {
         _currentPath.clear();
         _currentPath.add(startTile);
       }
     }
-    
+
     // If hovering over a tile already in path, backtrack
     final existingIndex = _currentPath.indexOf(targetTile);
     if (existingIndex != -1) {
@@ -386,11 +402,17 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     } else {
       // Try to add new tile manually
       final lastTile = _currentPath.last;
-      final isNeighbor = gridUtils.isNeighbor(lastTile.x, lastTile.y, targetTile.x, targetTile.y);
-      
-      if (isNeighbor && 
-          targetTile.walkable && 
-          _currentPath.length <= selectedUnitForMovement!.unitModel.movementPoints &&
+      final isNeighbor = gridUtils.isNeighbor(
+        lastTile.x,
+        lastTile.y,
+        targetTile.x,
+        targetTile.y,
+      );
+
+      if (isNeighbor &&
+          targetTile.walkable &&
+          _currentPath.length <=
+              selectedUnitForMovement!.unitModel.movementPoints &&
           highlightedMovementTiles.contains(targetTile)) {
         _currentPath.add(targetTile);
       } else if (highlightedMovementTiles.contains(targetTile)) {
@@ -401,9 +423,11 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
           endX: targetTile.x,
           endY: targetTile.y,
           gridData: gridData,
-          blockedTiles: _getBlockedTiles(selectedUnitForMovement!.unitModel.alliance),
+          blockedTiles: _getBlockedTiles(
+            selectedUnitForMovement!.unitModel.alliance,
+          ),
         );
-        
+
         if (newPath.isNotEmpty) {
           _currentPath.clear();
           // Add start tile manually as findPath returns path including start/end
@@ -413,24 +437,24 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
         }
       }
     }
-    
+
     // Update arrow visual
     // Remove existing arrow
     if (_movementArrow != null) {
       _movementArrow!.removeFromParent();
       _movementArrow = null;
     }
-    
+
     if (_currentPath.length < 2) return;
-    
+
     // Convert to world coordinates
     final List<Vector2> pathPoints = [];
-    
+
     for (final tile in _currentPath) {
       final pos = getTilePosition(tile.x, tile.y);
       if (pos != null) pathPoints.add(pos);
     }
-    
+
     // Create and add arrow
     _movementArrow = MovementPathArrow(
       pathPoints: pathPoints,
@@ -441,13 +465,15 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
 
   // Handle tile tap from IsometricTile
   void handleTileTap(TileModel tile) {
-    if (selectedUnitForMovement != null && highlightedMovementTiles.contains(tile)) {
+    if (selectedUnitForMovement != null &&
+        highlightedMovementTiles.contains(tile)) {
       _executeMovement(tile);
-    } else if (selectedUnitForAttack != null && currentAttackTargets.containsKey(tile)) {
-        _executeAttack(tile);
+    } else if (selectedUnitForAttack != null &&
+        currentAttackTargets.containsKey(tile)) {
+      _executeAttack(tile);
     }
   }
-  
+
   // Check if a tile is occupied by any unit
   bool isTileOccupied(int x, int y) {
     for (final component in children.whereType<UnitComponent>()) {
@@ -459,13 +485,14 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
   }
 
   Future<void> _executeMovement(TileModel targetTile) async {
-    if (selectedUnitForMovement == null || selectedCardForExecution == null) return;
-    
+    if (selectedUnitForMovement == null || selectedCardForExecution == null)
+      return;
+
     // If we have a manual path, ensure we're moving to the end of it
     // (targetTile should match _currentPath.last if logic is correct)
-    
+
     List<TileModel> movePath = List.from(_currentPath);
-    
+
     // If manual path is empty or invalid for this target, calculate shortest path
     if (movePath.isEmpty || movePath.last != targetTile) {
       movePath = PathfindingUtils.findPath(
@@ -474,113 +501,121 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
         endX: targetTile.x,
         endY: targetTile.y,
         gridData: gridData,
-        blockedTiles: _getBlockedTiles(selectedUnitForMovement!.unitModel.alliance),
+        blockedTiles: _getBlockedTiles(
+          selectedUnitForMovement!.unitModel.alliance,
+        ),
       );
     }
-    
+
     // Capture alliance for callback since selectedUnitForMovement will be cleared
     final unitComponent = selectedUnitForMovement!;
     final unitAlliance = unitComponent.unitModel.alliance;
-    
+
     // Consume card immediately to lock interaction
     _consumeSelectedCard();
-    
+
     // Move unit along path
     await unitComponent.moveTo(
-      targetTile.x, 
-      targetTile.y, 
+      targetTile.x,
+      targetTile.y,
       path: movePath,
       stepDuration: 0.3, // Default speed
       onTileEntered: (tile) async {
-        
         // Handle Ambush (Reactionary Fire) - Triggers on entering ANY danger tile
         await _handleAmbush(unitComponent, tile);
 
         if (!tile.controllable) return;
-        if (unitComponent.unitModel.currentHP <= 0) return; // Don't capture if dead
+        if (unitComponent.unitModel.currentHP <= 0)
+          return; // Don't capture if dead
 
         // Current tile logic:
         // 1. If Neutral, capture it.
         // 2. If Opposite Team, capture it (splash effect trigger).
-        
-        bool captured = false;
-        
-        if (tile.alliance.toLowerCase() == 'neutral') {
-            // Capture current
-            tileControlChange(tile, unitAlliance);
-            captured = true;
 
-            // Capture adjacent Neutral tiles
-            final neighbors = gridUtils.getNeighbors(tile.x, tile.y);
-            for (final p in neighbors) {
-                final neighbor = gridData.getTileAt(p.$1, p.$2);
-                if (neighbor != null && 
-                    neighbor.controllable && 
-                    neighbor.alliance.toLowerCase() == 'neutral') {
-                     
-                     // Capture neutral neighbor
-                     tileControlChange(neighbor, unitAlliance);
-                }
+        bool captured = false;
+
+        if (tile.alliance.toLowerCase() == 'neutral') {
+          // Capture current
+          tileControlChange(tile, unitAlliance);
+          captured = true;
+
+          // Capture adjacent Neutral tiles
+          final neighbors = gridUtils.getNeighbors(tile.x, tile.y);
+          for (final p in neighbors) {
+            final neighbor = gridData.getTileAt(p.$1, p.$2);
+            if (neighbor != null &&
+                neighbor.controllable &&
+                neighbor.alliance.toLowerCase() == 'neutral') {
+              // Capture neutral neighbor
+              tileControlChange(neighbor, unitAlliance);
             }
+          }
         } else if (tile.alliance != unitAlliance) {
-            // Entered an opposing tile - Capture ONLY this tile
-            tileControlChange(tile, unitAlliance);
-            captured = true;
+          // Entered an opposing tile - Capture ONLY this tile
+          tileControlChange(tile, unitAlliance);
+          captured = true;
         }
       },
     );
-    
+
     // Clear manual path (already done mostly strictly, but robustly here)
     _currentPath.clear();
   }
 
   Future<void> _handleAmbush(UnitComponent victim, TileModel tile) async {
-      // Safe lookup for canonical tile to ensure map key is found
-      final canonicalTile = gridData.getTileAt(tile.x, tile.y);
-      if (canonicalTile == null || !_dangerMap.containsKey(canonicalTile)) return;
-      
-      final attackers = List<UnitComponent>.from(_dangerMap[canonicalTile]!);
-      attackers.shuffle(); // Random sequence
-      
-      print('Ambush Triggered! ${attackers.length} attackers.');
-      
-      for (final attacker in attackers) {
-          // Check if victim is dead
-          if (victim.unitModel.currentHP <= 0) break;
-          
-          // Execute Attack
-          await _performAmbushAttack(attacker, victim, tile);
-          
-          // Small delay between attacks
-          await Future.delayed(const Duration(milliseconds: 300));
-      }
+    // Safe lookup for canonical tile to ensure map key is found
+    final canonicalTile = gridData.getTileAt(tile.x, tile.y);
+    if (canonicalTile == null || !_dangerMap.containsKey(canonicalTile)) return;
+
+    final attackers = List<UnitComponent>.from(_dangerMap[canonicalTile]!);
+    attackers.shuffle(); // Random sequence
+
+    print('Ambush Triggered! ${attackers.length} attackers.');
+
+    for (final attacker in attackers) {
+      // Check if victim is dead
+      if (victim.unitModel.currentHP <= 0) break;
+
+      // Execute Attack
+      await _performAmbushAttack(attacker, victim, tile);
+
+      // Small delay between attacks
+      await Future.delayed(const Duration(milliseconds: 300));
+    }
   }
 
-  Future<void> _performAmbushAttack(UnitComponent attacker, UnitComponent victim, TileModel tile) async {
-      final startPos = getTilePosition(attacker.unitModel.x, attacker.unitModel.y);
-      final targetPos = getTilePosition(victim.unitModel.x, victim.unitModel.y);
-      
-      if (startPos == null || targetPos == null) return;
-      
-      final completer = Completer<void>();
-      
-      final damage = attacker.unitModel.attackValue;
-      
-      // Projectile
-      final projectile = ProjectileComponent(
-          startPos: startPos,
-          targetPos: targetPos,
-          isArtillery: attacker.unitModel.attackType == 'artillery',
-          onHit: () {
-              // Ensure we apply damage to the correct unit (victim)
-              // _applyDamage uses tile lookup. Victim should be at tile.
-              _applyDamage(tile, damage); 
-              completer.complete();
-          }
-      );
-      add(projectile);
-      
-      await completer.future;
+  Future<void> _performAmbushAttack(
+    UnitComponent attacker,
+    UnitComponent victim,
+    TileModel tile,
+  ) async {
+    final startPos = getTilePosition(
+      attacker.unitModel.x,
+      attacker.unitModel.y,
+    );
+    final targetPos = getTilePosition(victim.unitModel.x, victim.unitModel.y);
+
+    if (startPos == null || targetPos == null) return;
+
+    final completer = Completer<void>();
+
+    final damage = attacker.unitModel.attackValue;
+
+    // Projectile
+    final projectile = ProjectileComponent(
+      startPos: startPos,
+      targetPos: targetPos,
+      isArtillery: attacker.unitModel.attackType == 'artillery',
+      onHit: () {
+        // Ensure we apply damage to the correct unit (victim)
+        // _applyDamage uses tile lookup. Victim should be at tile.
+        _applyDamage(tile, damage);
+        completer.complete();
+      },
+    );
+    add(projectile);
+
+    await completer.future;
   }
 
   // Handle tile control changes
@@ -588,45 +623,45 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     // Update data
     tile.alliance = newAlliance;
     print('Tile at (${tile.x}, ${tile.y}) captured by $newAlliance');
-    
+
     _calculateControlPercentages();
   }
-  
+
   void _calculateControlPercentages() {
     if (onControlChange == null) return;
-    
+
     int totalControllable = 0;
     int hiveCount = 0; // AI/Hive
     int mendersCount = 0;
     int neutralCount = 0;
-    
+
     for (var row in gridData.tiles) {
-        for (var tile in row) {
-            if (tile.controllable) {
-                totalControllable++;
-                switch (tile.alliance.toLowerCase()) {
-                    case 'menders':
-                        mendersCount++;
-                        break;
-                    case 'hive': // AI/Hive
-                        hiveCount++;
-                        break;
-                    default:
-                        neutralCount++;
-                }
-            }
+      for (var tile in row) {
+        if (tile.controllable) {
+          totalControllable++;
+          switch (tile.alliance.toLowerCase()) {
+            case 'menders':
+              mendersCount++;
+              break;
+            case 'hive': // AI/Hive
+              hiveCount++;
+              break;
+            default:
+              neutralCount++;
+          }
         }
+      }
     }
-    
+
     if (totalControllable == 0) return;
-    
+
     onControlChange!({
-        'Hive': hiveCount / totalControllable,
-        'Menders': mendersCount / totalControllable,
-        'Neutral': neutralCount / totalControllable,
+      'Hive': hiveCount / totalControllable,
+      'Menders': mendersCount / totalControllable,
+      'Neutral': neutralCount / totalControllable,
     });
   }
-  
+
   // Console command: Show discard pile
   void showDiscardPile() {
     print('=== DISCARD PILE ===');
@@ -644,26 +679,26 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    
+
     // Reset camera to ensure 1:1 mapping with screen coordinates
     camera.viewfinder.zoom = 1.0;
     camera.viewfinder.anchor = Anchor.topLeft;
     camera.viewfinder.position = Vector2.zero();
-    
+
     // Add movement border component - REMOVED (Handled dynamically)
     // add(_movementBorder);
-    
+
     // Load Test Level
     final level = LevelDatabase.getLevel('test_level');
-    
+
     // Initial Control Calculation
 
-    
     // Handle unit selection for movement
     // NOTE: The following block seems to be intended for a tap/click handler,
     // not for the onLoad method. It also uses undefined variables `gridX` and `gridY`.
     // As per instructions, inserting faithfully, but be aware of potential issues.
-    if (selectedUnitForMovement != null && highlightedMovementTiles.isNotEmpty) {
+    if (selectedUnitForMovement != null &&
+        highlightedMovementTiles.isNotEmpty) {
       // Check if clicked tile is a valid movement target
       // final clickedTile = gridData.getTile(gridX, gridY); // gridX, gridY are undefined
       // if (clickedTile != null && highlightedMovementTiles.contains(clickedTile)) {
@@ -671,7 +706,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       //   return;
       // }
     }
-    
+
     // Handle tile hover
     // NOTE: The following line seems to be intended for a tap/click handler,
     // not for the onLoad method. It also uses undefined variables `gridX` and `gridY`
@@ -680,7 +715,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     // if (gridX >= 0 && gridX < gridData.gridSize && gridY >= 0 && gridY < gridData.gridSize) {
     //   // Placeholder for intended logic
     // }
-    
+
     // Initialize GridUtils and grid data
     gridUtils = GridUtils(tileWidth: 64.0, tileHeight: 32.0);
     gridData = GridData(
@@ -692,10 +727,10 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       brainDamageCoordinates: level.brainDamageCoordinates,
       memoryCoordinates: level.memoryCoordinates,
     );
-    
+
     // Initial Control Calculation
     _calculateControlPercentages();
-    
+
     // Initialize AttackUtils
     attackUtils = AttackUtils(gridData: gridData, gridUtils: gridUtils);
 
@@ -718,7 +753,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
         }
       }
     }
-    
+
     // Apply Enemy Control based on Strategy
     final controllableTiles = <TileModel>[];
     for (int x = 0; x < gridData.gridSize; x++) {
@@ -729,9 +764,11 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
         }
       }
     }
-    
-    final enemyTileCount = (controllableTiles.length * (level.enemyControlledPercentage / 100.0)).round();
-    
+
+    final enemyTileCount =
+        (controllableTiles.length * (level.enemyControlledPercentage / 100.0))
+            .round();
+
     // Sort controllableTiles based on strategy
     switch (level.enemyControlledTilesStartingPosition.toLowerCase()) {
       case 'top':
@@ -802,7 +839,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
         // Default top
         controllableTiles.sort((a, b) => (a.x + a.y).compareTo(b.x + b.y));
     }
-    
+
     // Take top N
     for (int i = 0; i < enemyTileCount; i++) {
       if (i < controllableTiles.length) {
@@ -813,17 +850,17 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     // Find valid Dendrite tiles for units
     TileModel? knightSpawn;
     double minKnightDist = 999.0;
-    
+
     // Find best spawn for Knight near (5,5)
     for (int x = 0; x < gridData.gridSize; x++) {
       for (int y = 0; y < gridData.gridSize; y++) {
         final tile = gridData.getTileAt(x, y);
         if (tile != null && tile.type == 'Dendrite') {
-           double d = ((x - 5) * (x - 5) + (y - 5) * (y - 5)).toDouble();
-           if (d < minKnightDist) {
-             minKnightDist = d;
-             knightSpawn = tile;
-           }
+          double d = ((x - 5) * (x - 5) + (y - 5) * (y - 5)).toDouble();
+          if (d < minKnightDist) {
+            minKnightDist = d;
+            knightSpawn = tile;
+          }
         }
       }
     }
@@ -831,28 +868,44 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     // Find best spawn for Archer near (0,5)
     TileModel? archerSpawn;
     double minArcherDist = 999.0;
-    
+
     for (int x = 0; x < gridData.gridSize; x++) {
       for (int y = 0; y < gridData.gridSize; y++) {
         final tile = gridData.getTileAt(x, y);
         if (tile != null && tile.type == 'Dendrite' && tile != knightSpawn) {
-           double d = ((x - 0) * (x - 0) + (y - 5) * (y - 5)).toDouble();
-           if (d < minArcherDist) {
-             minArcherDist = d;
-             archerSpawn = tile;
-           }
+          double d = ((x - 0) * (x - 0) + (y - 5) * (y - 5)).toDouble();
+          if (d < minArcherDist) {
+            minArcherDist = d;
+            archerSpawn = tile;
+          }
         }
       }
     }
-    
+
     // Fallback if something went wrong
-    knightSpawn ??= gridData.getTileAt(5, 5) ?? TileModel(x: 5, y: 5, type: 'Dendrite', description: 'Fallback', walkable: true);
-    archerSpawn ??= gridData.getTileAt(0, 5) ?? TileModel(x: 0, y: 5, type: 'Dendrite', description: 'Fallback', walkable: true);
+    knightSpawn ??=
+        gridData.getTileAt(5, 5) ??
+        TileModel(
+          x: 5,
+          y: 5,
+          type: 'Dendrite',
+          description: 'Fallback',
+          walkable: true,
+        );
+    archerSpawn ??=
+        gridData.getTileAt(0, 5) ??
+        TileModel(
+          x: 0,
+          y: 5,
+          type: 'Dendrite',
+          description: 'Fallback',
+          walkable: true,
+        );
 
     // Create and add a demo unit at grid center
     // Track occupied tiles to prevent overlap
     final occupiedTiles = <TileModel>{};
-    
+
     // Helper to find random valid tile
     TileModel? findRandomTile({required bool Function(TileModel) filter}) {
       final candidates = <TileModel>[];
@@ -864,17 +917,22 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
         }
       }
       if (candidates.isEmpty) return null;
-      return candidates[DateTime.now().microsecondsSinceEpoch % candidates.length];
+      return candidates[DateTime.now().microsecondsSinceEpoch %
+          candidates.length];
     }
 
     // Spawn Menders (Bottom 4 rows)
     final menderSpawnFilter = (TileModel t) => t.y >= gridData.gridSize - 4;
-    
+
     // Manipulator
     final manipulatorTile = findRandomTile(filter: menderSpawnFilter);
     if (manipulatorTile != null) {
       occupiedTiles.add(manipulatorTile);
-      final manipulator = UnitDatabase.create('Manipulator', manipulatorTile.x, manipulatorTile.y);
+      final manipulator = UnitDatabase.create(
+        'Manipulator',
+        manipulatorTile.x,
+        manipulatorTile.y,
+      );
       add(UnitComponent(unitModel: manipulator));
     }
 
@@ -885,51 +943,63 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       final nina = UnitDatabase.create('Crazy Nina', ninaTile.x, ninaTile.y);
       add(UnitComponent(unitModel: nina));
     }
-    
+
     // Spawn Hive Units (In Hive Controlled Territory)
     final hiveSpawnFilter = (TileModel t) => t.alliance == 'Hive';
-    
+
     // Terminator
     final terminatorTile = findRandomTile(filter: hiveSpawnFilter);
     if (terminatorTile != null) {
-        occupiedTiles.add(terminatorTile);
-        final terminator = UnitDatabase.create('Terminator', terminatorTile.x, terminatorTile.y);
-        add(UnitComponent(unitModel: terminator));
+      occupiedTiles.add(terminatorTile);
+      final terminator = UnitDatabase.create(
+        'Terminator',
+        terminatorTile.x,
+        terminatorTile.y,
+      );
+      add(UnitComponent(unitModel: terminator));
     }
 
     // Sweeper
     final sweeperTile = findRandomTile(filter: hiveSpawnFilter);
     if (sweeperTile != null) {
-        occupiedTiles.add(sweeperTile);
-        final sweeper = UnitDatabase.create('Sweeper', sweeperTile.x, sweeperTile.y);
-        add(UnitComponent(unitModel: sweeper));
+      occupiedTiles.add(sweeperTile);
+      final sweeper = UnitDatabase.create(
+        'Sweeper',
+        sweeperTile.x,
+        sweeperTile.y,
+      );
+      add(UnitComponent(unitModel: sweeper));
     }
-    
+
     // Initial capture for new units
     for (final unit in children.whereType<UnitComponent>()) {
       final tile = gridData.getTileAt(unit.unitModel.x, unit.unitModel.y);
-      if (tile != null && tile.controllable && tile.alliance.toLowerCase() == 'neutral') {
+      if (tile != null &&
+          tile.controllable &&
+          tile.alliance.toLowerCase() == 'neutral') {
         tileControlChange(tile, unit.unitModel.alliance);
       }
     }
-    
+
     // Initialize Player Deck
     deck.clear();
     final masterPool = CardDatabase.masterCardPool;
     final basicAttack = masterPool.firstWhere((c) => c.title == 'Basic Attack');
     final basicDefend = masterPool.firstWhere((c) => c.title == 'Basic Defend');
     final basicMove = masterPool.firstWhere((c) => c.title == 'Basic Move');
-    
-    for (int i = 0; i < 12; i++) deck.add(basicAttack.copyWith(id: 'p_attack_$i'));
-    for (int i = 0; i < 5; i++) deck.add(basicDefend.copyWith(id: 'p_defend_$i'));
+
+    for (int i = 0; i < 12; i++)
+      deck.add(basicAttack.copyWith(id: 'p_attack_$i'));
+    for (int i = 0; i < 5; i++)
+      deck.add(basicDefend.copyWith(id: 'p_defend_$i'));
     for (int i = 0; i < 13; i++) deck.add(basicMove.copyWith(id: 'p_move_$i'));
-    
+
     // Shuffle deck
     deck.shuffle();
-    
+
     // Clear hand (start with 0 cards)
     currentPlayerCardPool.clear();
-    
+
     // Add Deck Component (Draw Pile)
     final screenWidth = size.x;
     final screenHeight = size.y;
@@ -938,25 +1008,23 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       type: DeckType.draw,
     );
     add(_deckComponent);
-    
+
     // Add Discard Pile Component
     _discardComponent = DeckComponent(
       position: Vector2(screenWidth - 90, screenHeight - 20),
       type: DeckType.discard,
     );
     add(_discardComponent);
-    
+
     // Start first turn with delay
     Future.delayed(const Duration(milliseconds: 1500), () {
       newTurn();
     });
-    
+
     // Initialize control for starting units
     // Capture tiles they are standing on
     // Initial control capture handled above
   }
-
-
 
   void newTurn() {
     print('Starting new turn...');
@@ -966,13 +1034,13 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
 
   void drawCards(int amount) {
     if (deck.isEmpty) return;
-    
+
     final drawCount = amount.clamp(0, deck.length);
     final drawnCards = deck.take(drawCount).toList();
     deck.removeRange(0, drawCount);
-    
+
     currentPlayerCardPool.addAll(drawnCards);
-    
+
     _animateDrawCards(drawnCards);
   }
 
@@ -980,22 +1048,22 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     final screenWidth = size.x;
     final screenHeight = size.y;
     final cardSpacing = 10.0;
-    
+
     // Calculate final positions for ALL cards in hand (including existing ones)
     // But for now, let's just append or re-layout.
     // Re-layouting existing cards is better.
-    
+
     // Remove existing card components from parent (we'll re-add them or update them)
     // Actually, simpler to just add new ones and then run a layout pass.
-    
+
     // Let's create components for new cards at Deck position
     final deckPos = _deckComponent.position.clone();
     // Adjust for anchor (Deck is bottomRight, Card is center)
     // Deck pos is bottom right corner.
     final startPos = deckPos - Vector2(30, 45); // Approx center of deck
-    
+
     final newComponents = <CardComponent>[];
-    
+
     for (var card in newCards) {
       final component = CardComponent(
         cardModel: card,
@@ -1004,7 +1072,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
       add(component);
       newComponents.add(component);
     }
-    
+
     // Now animate all cards to their hand positions
     _layoutHand(newComponents);
   }
@@ -1013,39 +1081,44 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     final screenWidth = size.x;
     final screenHeight = size.y;
     final cardSpacing = 10.0;
-    
+
     // Get all card components in hand (existing + new)
     // We need to match currentPlayerCardPool order
     // Existing components:
-    final existingComponents = children.whereType<CardComponent>().where((c) => !newCards.contains(c) && c != selectedCardForExecution).toList();
-    
+    final existingComponents = children
+        .whereType<CardComponent>()
+        .where((c) => !newCards.contains(c) && c != selectedCardForExecution)
+        .toList();
+
     // This is tricky because children order might not match pool order.
     // Let's rebuild the list of components based on pool.
     // Or just layout what we have.
-    
+
     final allHandComponents = [...existingComponents, ...newCards];
-    
-    final totalCardWidth = (CardComponent.cardWidth * allHandComponents.length) + 
-                          (cardSpacing * (allHandComponents.length - 1));
-    final startX = (screenWidth - totalCardWidth) / 2 + (CardComponent.cardWidth / 2);
+
+    final totalCardWidth =
+        (CardComponent.cardWidth * allHandComponents.length) +
+        (cardSpacing * (allHandComponents.length - 1));
+    final startX =
+        (screenWidth - totalCardWidth) / 2 + (CardComponent.cardWidth / 2);
     final cardY = screenHeight - CardComponent.cardHeight / 2 - 20;
-    
+
     for (int i = 0; i < allHandComponents.length; i++) {
       final component = allHandComponents[i];
       final targetX = startX + (i * (CardComponent.cardWidth + cardSpacing));
       final targetPos = Vector2(targetX, cardY);
-      
+
       // Delay based on index for "quick succession"
       // Only delay new cards? Or all?
       // User said "animate them in quick succession... from the deck icon".
       // Existing cards should probably just slide.
-      
+
       double delay = 0.0;
       if (newCards.contains(component)) {
         final newIndex = newCards.indexOf(component);
         delay = newIndex * 0.1;
       }
-      
+
       component.add(
         MoveEffect.to(
           targetPos,
@@ -1059,7 +1132,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
           },
         ),
       );
-      
+
       // Update base position for hover effects
       // We need to access _basePosition, but it's private.
       // CardComponent needs a method to update base position.
@@ -1073,77 +1146,84 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     }
   }
 
-  
   // Danger Zone Logic (Hive Attack Ranges)
   // Map<DangerTile, List<SourceUnit>>
   final Map<TileModel, List<UnitComponent>> _dangerMap = {};
   final List<AttackPathIndicator> _activeDangerPaths = [];
 
   void _updateDangerZones() {
-     // Clear previous state
-     for (final tileComp in children.whereType<IsometricTile>()) {
-         tileComp.setIsDanger(false);
-     }
-     _dangerMap.clear();
-     
-     // Find all Hive units
-     final hiveUnits = children.whereType<UnitComponent>().where((u) => u.unitModel.alliance == 'Hive');
-     
-     for (final unit in hiveUnits) {
-         // Calculate attackable tiles for this unit
-         // Note: calculateAttackTargets usually returns tiles containing valid targets (units).
-         // But the user wants "tiles the AI can attack", implying range. 
-         // We might need to adjust AttackUtils or use a heuristic here.
-         // AttackUtils.calculateAttackTargets uses `gridData` and checks for occupied tiles usually.
-         // Actually, let's look at AttackUtils implementation in our head: usually checks if tile is occupied by enemy.
-         // But "warning" usually implies "don't step here".
-         // Use PathfindingUtils or AttackUtils to find all tiles IN RANGE and VISIBLE.
-         
-         // Let's assume we want ALL tiles in range that line-of-sight isn't blocked.
-         // We can use attackUtils.calculateAttackTargets but relax the "contains enemy" check?
-         // No, calculateAttackTargets is specifically for targeting units.
-         
-         // Let's iterate all tiles in range manually using GridUtils
-         final visibleTiles = gridUtils.getTilesInRange(unit.unitModel.x, unit.unitModel.y, unit.unitModel.attackRange);
-         
-         for (final tilePoint in visibleTiles) {
-             final tile = gridData.getTileAt(tilePoint.$1, tilePoint.$2);
-             if (tile == null) continue;
-             
-             // Check Line of Sight
-             // Only relevant for Projectile/Melee? Artillery usually ignores LOS?
-             bool hasLOS = true;
-             if (unit.unitModel.attackType != 'artillery') {
-                 // Simple LOS check: trace line using AttackUtils logic or similar
-                 // Re-using AttackUtils.getLineOfSight would be best if available.
-                 // Otherwise, assume clear for now or implement Bresenham.
-                 // Since we don't have access to AttackUtils inner methods easily, let's use a simplified check
-                 // or assume valid for now if simple. 
-                 
-                 // Actually, let's rely on AttackUtils to get the path. If path exists, it's valid.
-                 // We can call `gridUtils.getLine`?
-                 
-                 final path = attackUtils.getAttackPath(
-                     unit.unitModel.x, unit.unitModel.y, 
-                     tile.x, tile.y, 
-                     unit.unitModel.attackType
-                 );
-                 
-                 if (path == null) hasLOS = false;
-             }
-             
-             if (hasLOS) {
-                 if (!_dangerMap.containsKey(tile)) {
-                     _dangerMap[tile] = [];
-                 }
-                 _dangerMap[tile]!.add(unit);
-                 
-                 // Update Visual
-                 final tileComp = getTileAt(tile.x, tile.y);
-                 tileComp?.setIsDanger(true);
-             }
-         }
-     }
+    // Clear previous state
+    for (final tileComp in children.whereType<IsometricTile>()) {
+      tileComp.setIsDanger(false);
+    }
+    _dangerMap.clear();
+
+    // Find all Hive units
+    final hiveUnits = children.whereType<UnitComponent>().where(
+      (u) => u.unitModel.alliance == 'Hive',
+    );
+
+    for (final unit in hiveUnits) {
+      // Calculate attackable tiles for this unit
+      // Note: calculateAttackTargets usually returns tiles containing valid targets (units).
+      // But the user wants "tiles the AI can attack", implying range.
+      // We might need to adjust AttackUtils or use a heuristic here.
+      // AttackUtils.calculateAttackTargets uses `gridData` and checks for occupied tiles usually.
+      // Actually, let's look at AttackUtils implementation in our head: usually checks if tile is occupied by enemy.
+      // But "warning" usually implies "don't step here".
+      // Use PathfindingUtils or AttackUtils to find all tiles IN RANGE and VISIBLE.
+
+      // Let's assume we want ALL tiles in range that line-of-sight isn't blocked.
+      // We can use attackUtils.calculateAttackTargets but relax the "contains enemy" check?
+      // No, calculateAttackTargets is specifically for targeting units.
+
+      // Let's iterate all tiles in range manually using GridUtils
+      final visibleTiles = gridUtils.getTilesInRange(
+        unit.unitModel.x,
+        unit.unitModel.y,
+        unit.unitModel.attackRange,
+      );
+
+      for (final tilePoint in visibleTiles) {
+        final tile = gridData.getTileAt(tilePoint.$1, tilePoint.$2);
+        if (tile == null) continue;
+
+        // Check Line of Sight
+        // Only relevant for Projectile/Melee? Artillery usually ignores LOS?
+        bool hasLOS = true;
+        if (unit.unitModel.attackType != 'artillery') {
+          // Simple LOS check: trace line using AttackUtils logic or similar
+          // Re-using AttackUtils.getLineOfSight would be best if available.
+          // Otherwise, assume clear for now or implement Bresenham.
+          // Since we don't have access to AttackUtils inner methods easily, let's use a simplified check
+          // or assume valid for now if simple.
+
+          // Actually, let's rely on AttackUtils to get the path. If path exists, it's valid.
+          // We can call `gridUtils.getLine`?
+
+          final path = attackUtils.getAttackPath(
+            unit.unitModel.x,
+            unit.unitModel.y,
+            tile.x,
+            tile.y,
+            unit.unitModel.attackType,
+          );
+
+          if (path == null) hasLOS = false;
+        }
+
+        if (hasLOS) {
+          if (!_dangerMap.containsKey(tile)) {
+            _dangerMap[tile] = [];
+          }
+          _dangerMap[tile]!.add(unit);
+
+          // Update Visual
+          final tileComp = getTileAt(tile.x, tile.y);
+          tileComp?.setIsDanger(true);
+        }
+      }
+    }
   }
 
   // Attack State
@@ -1153,128 +1233,131 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
 
   void _handleAttackUnitSelection(UnitComponent unit) {
     if (unit.unitModel.alliance != 'Menders') return;
-    
+
     // Toggle logic
     if (selectedUnitForAttack == unit) {
-         selectedUnitForAttack = null;
-         _clearAttackState();
-         unit.setSelected(false);
-      } else {
-         if (selectedUnitForAttack != null) selectedUnitForAttack!.setSelected(false);
-         selectedUnitForAttack = unit;
-         unit.setSelected(true);
-         
-         // Calculate Targets
-         currentAttackTargets = attackUtils.calculateAttackTargets(
-             startX: unit.unitModel.x,
-             startY: unit.unitModel.y,
-             range: unit.unitModel.attackRange,
-             attackType: unit.unitModel.attackType,
-         );
-         
-         // Highlight targets (Purple)
-         _highlightAttackTargets();
-     }
+      selectedUnitForAttack = null;
+      _clearAttackState();
+      unit.setSelected(false);
+    } else {
+      if (selectedUnitForAttack != null)
+        selectedUnitForAttack!.setSelected(false);
+      selectedUnitForAttack = unit;
+      unit.setSelected(true);
+
+      // Calculate Targets
+      currentAttackTargets = attackUtils.calculateAttackTargets(
+        startX: unit.unitModel.x,
+        startY: unit.unitModel.y,
+        range: unit.unitModel.attackRange,
+        attackType: unit.unitModel.attackType,
+      );
+
+      // Highlight targets (Purple)
+      _highlightAttackTargets();
+    }
   }
 
-  
   void _highlightAttackTargets() {
-      _clearTileHighlights();
-      
-      for (final tile in currentAttackTargets.keys) {
-          final tileComponent = getTileAt(tile.x, tile.y);
-          if (tileComponent != null) {
-            tileComponent.setHighlightColor(const Color(0xFF4A148C)); // Dark Purple
-          }
+    _clearTileHighlights();
+
+    for (final tile in currentAttackTargets.keys) {
+      final tileComponent = getTileAt(tile.x, tile.y);
+      if (tileComponent != null) {
+        tileComponent.setHighlightColor(const Color(0xFF4A148C)); // Dark Purple
       }
-      highlightedMovementTiles = currentAttackTargets.keys.toList(); 
+    }
+    highlightedMovementTiles = currentAttackTargets.keys.toList();
   }
-  
+
   void _clearAttackState() {
-      currentAttackTargets.clear();
-      highlightedMovementTiles.clear();
-      if (_activeAttackPath != null) {
-          _activeAttackPath!.removeFromParent();
-          _activeAttackPath = null;
-      }
-       // Clear tile highlights
-      for (final tileComp in children.whereType<IsometricTile>()) {
-          tileComp.setHighlightColor(null);
-      }
-      
-      // Clear unit previews
-      for (final unit in children.whereType<UnitComponent>()) {
-          unit.setPreviewDamage(0);
-      }
+    currentAttackTargets.clear();
+    highlightedMovementTiles.clear();
+    if (_activeAttackPath != null) {
+      _activeAttackPath!.removeFromParent();
+      _activeAttackPath = null;
+    }
+    // Clear tile highlights
+    for (final tileComp in children.whereType<IsometricTile>()) {
+      tileComp.setHighlightColor(null);
+    }
+
+    // Clear unit previews
+    for (final unit in children.whereType<UnitComponent>()) {
+      unit.setPreviewDamage(0);
+    }
   }
 
   void _executeAttack(TileModel targetTile) {
-      if (selectedUnitForAttack == null) return;
-      
-      final path = currentAttackTargets[targetTile];
-      if (path == null) return;
-      
-      final startPos = getTilePosition(selectedUnitForAttack!.unitModel.x, selectedUnitForAttack!.unitModel.y);
-      final targetPos = getTilePosition(targetTile.x, targetTile.y);
-      
-      if (startPos == null || targetPos == null) return;
-      
-      // Play Sound (Disabled)
-      // try { FlameAudio.play('shoot.wav'); } catch (e) {}
-      
-      // Spawn Projectile
-      final damage = selectedUnitForAttack!.unitModel.attackValue;
-      final projectile = ProjectileComponent(
-          startPos: startPos,
-          targetPos: targetPos,
-          isArtillery: selectedUnitForAttack!.unitModel.attackType == 'artillery',
-          onHit: () {
-              _applyDamage(targetTile, damage);
-              // deselectCard(); // Already called by _consumeSelectedCard immediately
-          }
-      );
-      add(projectile);
-      
-      _consumeSelectedCard();
+    if (selectedUnitForAttack == null) return;
+
+    final path = currentAttackTargets[targetTile];
+    if (path == null) return;
+
+    final startPos = getTilePosition(
+      selectedUnitForAttack!.unitModel.x,
+      selectedUnitForAttack!.unitModel.y,
+    );
+    final targetPos = getTilePosition(targetTile.x, targetTile.y);
+
+    if (startPos == null || targetPos == null) return;
+
+    // Play Sound (Disabled)
+    // try { FlameAudio.play('shoot.wav'); } catch (e) {}
+
+    // Spawn Projectile
+    final damage = selectedUnitForAttack!.unitModel.attackValue;
+    final projectile = ProjectileComponent(
+      startPos: startPos,
+      targetPos: targetPos,
+      isArtillery: selectedUnitForAttack!.unitModel.attackType == 'artillery',
+      onHit: () {
+        _applyDamage(targetTile, damage);
+        // deselectCard(); // Already called by _consumeSelectedCard immediately
+      },
+    );
+    add(projectile);
+
+    _consumeSelectedCard();
   }
-  
+
   void _applyDamage(TileModel tile, int damage) {
-      final unitsAtTile = children.whereType<UnitComponent>().where(
-          (u) => u.unitModel.x == tile.x && u.unitModel.y == tile.y
-      );
-      
-      if (unitsAtTile.isEmpty) return;
-      final unit = unitsAtTile.first;
-      
-      if (unit.unitModel.hasShield) {
-          unit.consumeShield();
-          print('${unit.unitModel.name} shield absorbed damage!');
-      } else {
-          print('${unit.unitModel.name} took $damage damage!');
-          
-          // Trigger visual reaction
-          unit.triggerDamageReaction();
-          
-          // Implement actual damage logic here
-          unit.unitModel.currentHP -= damage;
-          print('Unit HP: ${unit.unitModel.currentHP} / ${unit.unitModel.maxHP}');
-          
-          if (unit.unitModel.currentHP <= 0) { 
-              // Delay removal slightly to show death effect or allow flash to start
-              // But requirements say "unit is dead and removed".
-              
-              // Let's try to keep it for 0.5s to show the red flash, then remove.
-              Future.delayed(const Duration(milliseconds: 500), () {
-                 unit.removeFromParent();
-                 print('${unit.unitModel.name} destroyed!');
-                 
-                 // If Hive unit died, update danger zones
-                 if (unit.unitModel.alliance == 'Hive') {
-                     _updateDangerZones();
-                 }
-              });
+    final unitsAtTile = children.whereType<UnitComponent>().where(
+      (u) => u.unitModel.x == tile.x && u.unitModel.y == tile.y,
+    );
+
+    if (unitsAtTile.isEmpty) return;
+    final unit = unitsAtTile.first;
+
+    if (unit.unitModel.hasShield) {
+      unit.consumeShield();
+      print('${unit.unitModel.name} shield absorbed damage!');
+    } else {
+      print('${unit.unitModel.name} took $damage damage!');
+
+      // Trigger visual reaction
+      unit.triggerDamageReaction();
+
+      // Implement actual damage logic here
+      unit.unitModel.currentHP -= damage;
+      print('Unit HP: ${unit.unitModel.currentHP} / ${unit.unitModel.maxHP}');
+
+      if (unit.unitModel.currentHP <= 0) {
+        // Delay removal slightly to show death effect or allow flash to start
+        // But requirements say "unit is dead and removed".
+
+        // Let's try to keep it for 0.5s to show the red flash, then remove.
+        Future.delayed(const Duration(milliseconds: 500), () {
+          unit.removeFromParent();
+          print('${unit.unitModel.name} destroyed!');
+
+          // If Hive unit died, update danger zones
+          if (unit.unitModel.alliance == 'Hive') {
+            _updateDangerZones();
           }
+        });
       }
+    }
   }
 
   @override
@@ -1286,14 +1369,14 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     UnitComponent? targetUnitComponent;
     // Convert screen position to world position
     final worldPosition = camera.globalToLocal(position);
-    
+
     // Check for unit hover first (units are on top of tiles)
     UnitModel? newHoveredUnit;
     UnitComponent? newHoveredComponent;
 
     // Reset previous hover if it exists, or just manage it carefully
     // Optimization: Keep track of hovered component instead of just model
-    
+
     for (final component in children.whereType<UnitComponent>()) {
       if (component.containsPoint(worldPosition)) {
         newHoveredUnit = component.unitModel;
@@ -1301,31 +1384,31 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
         break;
       }
     }
-    
+
     if (newHoveredUnit != hoveredUnit) {
       // Clear previous hover visual
       for (final component in children.whereType<UnitComponent>()) {
-          // We can't easily identifying the "previous" component from hoveredUnit model alone 
-          // without a map or iterating properly.
-          // Simpler: Set hovered = false for all, then true for new one?
-          // Or just check if component.unitModel == hoveredUnit
-          if (hoveredUnit != null && component.unitModel == hoveredUnit) {
-               component.setHovered(false);
-          }
+        // We can't easily identifying the "previous" component from hoveredUnit model alone
+        // without a map or iterating properly.
+        // Simpler: Set hovered = false for all, then true for new one?
+        // Or just check if component.unitModel == hoveredUnit
+        if (hoveredUnit != null && component.unitModel == hoveredUnit) {
+          component.setHovered(false);
+        }
       }
-      
+
       hoveredUnit = newHoveredUnit;
       onUnitHoverChange?.call(hoveredUnit);
-      
+
       // Set new hover visual
       if (newHoveredComponent != null) {
-          newHoveredComponent.setHovered(true);
+        newHoveredComponent.setHovered(true);
       }
     }
-    
+
     // Find the tile that contains this point
     TileModel? newHoveredTile;
-    
+
     // Iterate through all isometric tiles to find which one is hovered
     for (final component in children.whereType<IsometricTile>()) {
       if (component.containsPoint(worldPosition)) {
@@ -1333,17 +1416,17 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
         break;
       }
     }
-    
+
     if (newHoveredTile != hoveredTile) {
       // Clear previous highlight
       if (_highlightedComponent != null) {
         _highlightedComponent!.setHovered(false);
         _highlightedComponent = null;
       }
-      
+
       hoveredTile = newHoveredTile;
       onTileHoverChange?.call(hoveredTile);
-      
+
       // Set new highlight
       if (hoveredTile != null) {
         // Find the component for this tile
@@ -1356,230 +1439,261 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
           }
         }
       }
-      
+
       // Update movement arrow
       _updateMovementArrow(hoveredTile);
-      
+
       // Update Danger Zone Visualization (Hover)
       // Clear previous danger paths
-       for (final p in _activeDangerPaths) {
-           p.removeFromParent();
-       }
-       _activeDangerPaths.clear();
-      
+      for (final p in _activeDangerPaths) {
+        p.removeFromParent();
+      }
+      _activeDangerPaths.clear();
+
       bool isDanger = false;
       int dangerDamage = 0;
 
       if (hoveredTile != null && _dangerMap.containsKey(hoveredTile)) {
-          isDanger = true;
-          // Calculate total damage
-          final attackers = _dangerMap[hoveredTile]!;
-          for (final attacker in attackers) {
-               dangerDamage += attacker.unitModel.attackValue;
-          }
+        isDanger = true;
+        // Calculate total damage
+        final attackers = _dangerMap[hoveredTile]!;
+        for (final attacker in attackers) {
+          dangerDamage += attacker.unitModel.attackValue;
+        }
 
-          // Show trajectories ONLY if we are moving a unit
-          if (selectedUnitForMovement != null) {
-              for (final attacker in attackers) {
-                   // Calculate path points
-                   final pathPoints = <Vector2>[];
-                   final startPos = getTilePosition(attacker.unitModel.x, attacker.unitModel.y);
-                   final endPos = getTilePosition(hoveredTile!.x, hoveredTile!.y);
-                   
-                   if (startPos != null && endPos != null) {
-                       pathPoints.add(startPos);
-                       final tilePath = attackUtils.getAttackPath(
-                           attacker.unitModel.x, attacker.unitModel.y,
-                           hoveredTile!.x, hoveredTile!.y,
-                           attacker.unitModel.attackType
-                       );
-                       
-                       if (tilePath != null) {
-                           for (final t in tilePath) {
-                               final p = getTilePosition(t.x, t.y);
-                               if (p != null) pathPoints.add(p);
-                           }
-                       } else {
-                           pathPoints.add(endPos); 
-                       }
-                       
-                       final indicator = AttackPathIndicator(
-                           pathPoints: pathPoints,
-                           type: attacker.unitModel.attackType == 'artillery' ? AttackPathType.artillery : AttackPathType.projectile,
-                           color: const Color(0xFFFF0000).withOpacity(0.5), // Red trajectory
-                       );
-                       add(indicator);
-                       _activeDangerPaths.add(indicator);
-                   }
-              }
-          }
-      }
-      
-      // Notify UI
-      if (onTileStatusChange != null) {
-          onTileStatusChange!(isDanger, dangerDamage);
-      }
-      
-      // Update Attack Path and Damage Preview
-      if (hoveredTile == null) {
-          if (_activeAttackPath != null) {
-              _activeAttackPath!.removeFromParent();
-              _activeAttackPath = null;
-          }
-      } else {
-          // ALWAYS find unit at hovered tile (regardless of attack targeting state)
-          for (final u in children.whereType<UnitComponent>()) {
-              if (u.unitModel.x == hoveredTile!.x && u.unitModel.y == hoveredTile!.y) {
-                  targetUnitComponent = u;
-                  break;
-              }
-          }
-          
-          // Check if hovering a valid attack target
-          if (selectedUnitForAttack != null && currentAttackTargets.containsKey(hoveredTile)) {
-              // Set preview damage on the unit (if found)
-              if (targetUnitComponent != null) {
-                  targetUnitComponent.setPreviewDamage(selectedUnitForAttack!.unitModel.attackValue);
-              }
-              
-              // Draw attack path
-              final path = currentAttackTargets[hoveredTile]!;
-              if (_activeAttackPath != null) _activeAttackPath!.removeFromParent();
-              
-              final pathPoints = <Vector2>[];
-              final startPos = getTilePosition(selectedUnitForAttack!.unitModel.x, selectedUnitForAttack!.unitModel.y);
-              if (startPos != null) pathPoints.add(startPos);
-              
-              for (final t in path) {
+        // Show trajectories ONLY if we are moving a unit
+        if (selectedUnitForMovement != null) {
+          for (final attacker in attackers) {
+            // Calculate path points
+            final pathPoints = <Vector2>[];
+            final startPos = getTilePosition(
+              attacker.unitModel.x,
+              attacker.unitModel.y,
+            );
+            final endPos = getTilePosition(hoveredTile!.x, hoveredTile!.y);
+
+            if (startPos != null && endPos != null) {
+              pathPoints.add(startPos);
+              final tilePath = attackUtils.getAttackPath(
+                attacker.unitModel.x,
+                attacker.unitModel.y,
+                hoveredTile!.x,
+                hoveredTile!.y,
+                attacker.unitModel.attackType,
+              );
+
+              if (tilePath != null) {
+                for (final t in tilePath) {
                   final p = getTilePosition(t.x, t.y);
                   if (p != null) pathPoints.add(p);
+                }
+              } else {
+                pathPoints.add(endPos);
               }
-              
-              _activeAttackPath = AttackPathIndicator(
-                  pathPoints: pathPoints,
-                  type: selectedUnitForAttack!.unitModel.attackType == 'artillery'
-                      ? AttackPathType.artillery
-                      : AttackPathType.projectile
-              );
-              add(_activeAttackPath!);
-          } else {
-              // Not a valid attack target - clear attack path
-              if (_activeAttackPath != null) {
-                  _activeAttackPath!.removeFromParent();
-                  _activeAttackPath = null;
-              }
-          }
-      }
-    
-    
-    // Logic to set previews
-    bool isPreviewing = false;
 
-    // 1. Attack Preview (Existing)
-    if (selectedUnitForAttack != null && hoveredTile != null && currentAttackTargets.containsKey(hoveredTile)) {
-          // Valid target hover, handled above (setPreviewDamage called)
-         isPreviewing = true;
-    }
-    
-    // 2. Danger Zone Preview (New)
-    // Only if not already attacking preview, and hovering a danger tile with movement unit
-    // We want to show cumulative damage for the WHOLE path if moving
-    if (!isPreviewing && selectedUnitForMovement != null && _currentPath.isNotEmpty) {
+              final indicator = AttackPathIndicator(
+                pathPoints: pathPoints,
+                type: attacker.unitModel.attackType == 'artillery'
+                    ? AttackPathType.artillery
+                    : AttackPathType.projectile,
+                color: const Color(
+                  0xFFFF0000,
+                ).withOpacity(0.5), // Red trajectory
+              );
+              add(indicator);
+              _activeDangerPaths.add(indicator);
+            }
+          }
+        }
+      }
+
+      // Notify UI
+      if (onTileStatusChange != null) {
+        onTileStatusChange!(isDanger, dangerDamage);
+      }
+
+      // Update Attack Path and Damage Preview
+      if (hoveredTile == null) {
+        if (_activeAttackPath != null) {
+          _activeAttackPath!.removeFromParent();
+          _activeAttackPath = null;
+        }
+      } else {
+        // ALWAYS find unit at hovered tile (regardless of attack targeting state)
+        for (final u in children.whereType<UnitComponent>()) {
+          if (u.unitModel.x == hoveredTile!.x &&
+              u.unitModel.y == hoveredTile!.y) {
+            targetUnitComponent = u;
+            break;
+          }
+        }
+
+        // Check if hovering a valid attack target
+        if (selectedUnitForAttack != null &&
+            currentAttackTargets.containsKey(hoveredTile)) {
+          // Set preview damage on the unit (if found)
+          if (targetUnitComponent != null) {
+            targetUnitComponent.setPreviewDamage(
+              selectedUnitForAttack!.unitModel.attackValue,
+            );
+          }
+
+          // Draw attack path
+          final path = currentAttackTargets[hoveredTile]!;
+          if (_activeAttackPath != null) _activeAttackPath!.removeFromParent();
+
+          final pathPoints = <Vector2>[];
+          final startPos = getTilePosition(
+            selectedUnitForAttack!.unitModel.x,
+            selectedUnitForAttack!.unitModel.y,
+          );
+          if (startPos != null) pathPoints.add(startPos);
+
+          for (final t in path) {
+            final p = getTilePosition(t.x, t.y);
+            if (p != null) pathPoints.add(p);
+          }
+
+          _activeAttackPath = AttackPathIndicator(
+            pathPoints: pathPoints,
+            type: selectedUnitForAttack!.unitModel.attackType == 'artillery'
+                ? AttackPathType.artillery
+                : AttackPathType.projectile,
+          );
+          add(_activeAttackPath!);
+        } else {
+          // Not a valid attack target - clear attack path
+          if (_activeAttackPath != null) {
+            _activeAttackPath!.removeFromParent();
+            _activeAttackPath = null;
+          }
+        }
+      }
+
+      // Logic to set previews
+      bool isPreviewing = false;
+
+      // 1. Attack Preview (Existing)
+      if (selectedUnitForAttack != null &&
+          hoveredTile != null &&
+          currentAttackTargets.containsKey(hoveredTile)) {
+        // Valid target hover, handled above (setPreviewDamage called)
+        isPreviewing = true;
+      }
+
+      // 2. Danger Zone Preview (New)
+      // Only if not already attacking preview, and hovering a danger tile with movement unit
+      // We want to show cumulative damage for the WHOLE path if moving
+      if (!isPreviewing &&
+          selectedUnitForMovement != null &&
+          _currentPath.isNotEmpty) {
         int totalDamage = 0;
         bool willLoseShield = selectedUnitForMovement!.unitModel.hasShield;
         bool isPathInDanger = false;
-        
+
         // Iterate path to calculate cumulative damage
         // Skip first tile (current position) as we don't re-trigger entry there
         for (int i = 0; i < _currentPath.length; i++) {
-            final tile = _currentPath[i];
-            
-            // Skip start position (no re-entry trigger)
-            if (tile.x == selectedUnitForMovement!.unitModel.x && 
-                tile.y == selectedUnitForMovement!.unitModel.y) {
-                continue;
+          final tile = _currentPath[i];
+
+          // Skip start position (no re-entry trigger)
+          if (tile.x == selectedUnitForMovement!.unitModel.x &&
+              tile.y == selectedUnitForMovement!.unitModel.y) {
+            continue;
+          }
+
+          if (_dangerMap.containsKey(tile)) {
+            isPathInDanger = true;
+            final attackers = _dangerMap[tile]!;
+            for (final attacker in attackers) {
+              if (willLoseShield) {
+                // Absorb one attack
+                willLoseShield = false; // Shield broken for subsequent attacks
+                // Note: willLoseShield is passed to setPreviewDamage to flash the shield.
+                // If it becomes false here, it means it WILL be lost.
+                // So we want to pass `true` to setPreviewDamage if it WAS consumed.
+                // The variable `willLoseShield` here tracks *active state*.
+                // Let's rename for clarity.
+              } else {
+                totalDamage += attacker.unitModel.attackValue;
+              }
             }
-            
-            if (_dangerMap.containsKey(tile)) {
-                isPathInDanger = true;
-                final attackers = _dangerMap[tile]!;
-                for (final attacker in attackers) {
-                    if (willLoseShield) {
-                        // Absorb one attack
-                        willLoseShield = false; // Shield broken for subsequent attacks
-                        // Note: willLoseShield is passed to setPreviewDamage to flash the shield.
-                        // If it becomes false here, it means it WILL be lost.
-                        // So we want to pass `true` to setPreviewDamage if it WAS consumed.
-                        // The variable `willLoseShield` here tracks *active state*.
-                        // Let's rename for clarity.
-                    } else {
-                        totalDamage += attacker.unitModel.attackValue;
-                    }
-                }
-            }
+          }
         }
-        
+
         if (isPathInDanger) {
-             // Pass initial hasShield to determine if we should flash it? 
-             // setPreviewDamage(..., willLoseShield: true) means "show shield breaking".
-             // We want to show shield breaking if it was consumed.
-             // It was consumed if `selectedUnitForMovement!.unitModel.hasShield` is true AND `willLoseShield` (current state) is false.
-             
-             bool initialShield = selectedUnitForMovement!.unitModel.hasShield;
-             bool shieldBroken = initialShield && !willLoseShield;
-             
-             selectedUnitForMovement!.setPreviewDamage(totalDamage, willLoseShield: shieldBroken);
-             isPreviewing = true;
+          // Pass initial hasShield to determine if we should flash it?
+          // setPreviewDamage(..., willLoseShield: true) means "show shield breaking".
+          // We want to show shield breaking if it was consumed.
+          // It was consumed if `selectedUnitForMovement!.unitModel.hasShield` is true AND `willLoseShield` (current state) is false.
+
+          bool initialShield = selectedUnitForMovement!.unitModel.hasShield;
+          bool shieldBroken = initialShield && !willLoseShield;
+
+          selectedUnitForMovement!.setPreviewDamage(
+            totalDamage,
+            willLoseShield: shieldBroken,
+          );
+          isPreviewing = true;
         }
-    } else if (!isPreviewing && selectedUnitForMovement != null && hoveredTile != null && _dangerMap.containsKey(hoveredTile)) {
+      } else if (!isPreviewing &&
+          selectedUnitForMovement != null &&
+          hoveredTile != null &&
+          _dangerMap.containsKey(hoveredTile)) {
         // Fallback for single tile hover if path is empty (shouldn't happen with move selected but safety)
         int totalDamage = 0;
         bool activeShield = selectedUnitForMovement!.unitModel.hasShield;
-        
+
         final attackers = _dangerMap[hoveredTile]!;
         for (final attacker in attackers) {
-            if (activeShield) {
-                activeShield = false;
-            } else {
-                totalDamage += attacker.unitModel.attackValue;
-            }
+          if (activeShield) {
+            activeShield = false;
+          } else {
+            totalDamage += attacker.unitModel.attackValue;
+          }
         }
-        
-        bool shieldBroken = selectedUnitForMovement!.unitModel.hasShield && !activeShield;
-        selectedUnitForMovement!.setPreviewDamage(totalDamage, willLoseShield: shieldBroken);
-        isPreviewing = true;
-    }
 
-    // Cleanup Previews
-    if (isPreviewing) {
-         // Valid target hover, ensure others are cleared
-         for (final u in children.whereType<UnitComponent>()) {
-             // If attacking: clear non-targets.
-             // If moving: clear non-movers (selectedUnitForMovement is the one showing preview)
-             
-             bool shouldClear = true;
-             
-             if (selectedUnitForAttack != null && u == targetUnitComponent) shouldClear = false;
-             if (selectedUnitForMovement != null && u == selectedUnitForMovement) shouldClear = false;
-             
-             if (shouldClear) {
-                 u.setPreviewDamage(0);
-             }
-         }
-    } else {
-         // Not hovering a valid target, clear all previews
-         for (final u in children.whereType<UnitComponent>()) {
-             u.setPreviewDamage(0);
-         }
-    }
+        bool shieldBroken =
+            selectedUnitForMovement!.unitModel.hasShield && !activeShield;
+        selectedUnitForMovement!.setPreviewDamage(
+          totalDamage,
+          willLoseShield: shieldBroken,
+        );
+        isPreviewing = true;
+      }
+
+      // Cleanup Previews
+      if (isPreviewing) {
+        // Valid target hover, ensure others are cleared
+        for (final u in children.whereType<UnitComponent>()) {
+          // If attacking: clear non-targets.
+          // If moving: clear non-movers (selectedUnitForMovement is the one showing preview)
+
+          bool shouldClear = true;
+
+          if (selectedUnitForAttack != null && u == targetUnitComponent)
+            shouldClear = false;
+          if (selectedUnitForMovement != null && u == selectedUnitForMovement)
+            shouldClear = false;
+
+          if (shouldClear) {
+            u.setPreviewDamage(0);
+          }
+        }
+      } else {
+        // Not hovering a valid target, clear all previews
+        for (final u in children.whereType<UnitComponent>()) {
+          u.setPreviewDamage(0);
+        }
+      }
     }
   }
-  
+
   // Expose debug commands to browser console
   void _setupConsoleCommands() {
     // These methods will be callable from browser console
   }
-  
+
   // Console command: Show current player card pool
   void showPlayerCards() {
     print('=== CURRENT PLAYER CARD POOL ===');
@@ -1594,7 +1708,7 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     }
     print('Total cards in player pool: ${currentPlayerCardPool.length}');
   }
-  
+
   // Console command: Show master card pool
   void showMasterCards() {
     print('=== MASTER CARD POOL ===');
@@ -1609,4 +1723,3 @@ class MyGame extends Forge2DGame with MouseMovementDetector, KeyboardEvents, Sec
     }
   }
 }
-
