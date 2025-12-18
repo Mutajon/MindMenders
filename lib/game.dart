@@ -1206,9 +1206,10 @@ class MyGame extends Forge2DGame
       newTurn();
     });
 
-    // Initialize control for starting units
-    // Capture tiles they are standing on
     // Initial control capture handled above
+
+    // FIX: Force update danger zones at end of load so they are visible immediately
+    updateDangerZones();
   }
 
   void newTurn() {

@@ -1,4 +1,5 @@
-import "dart:async";import 'package:flame/components.dart';
+import "dart:async";
+import 'package:flame/components.dart';
 import 'health_bar_component.dart';
 import 'package:flame/effects.dart';
 import 'package:flame/events.dart';
@@ -17,24 +18,26 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
   // Effects
   OpacityEffect? _pulseEffect;
   double _haloOpacity = 0.0;
-  
+
   // Halo color
   Color _haloColor = Colors.white;
-  
+
   // External Health Bar
   HealthBarComponent? _healthBarComponent;
+
+  // Sprite Animation for specific units
+  SpriteAnimationComponent? _animationComponent;
 
   void setHaloColor(Color color) {
     _haloColor = color;
   }
-  
-  UnitComponent({
-    required this.unitModel,
-  }) : super(
-          size: Vector2(25, 25), // Unit size
-          anchor: Anchor.center,
-          priority: 100, // Ensure strictly above tiles (default 0)
-        );
+
+  UnitComponent({required this.unitModel})
+    : super(
+        size: Vector2(25, 25), // Unit size
+        anchor: Anchor.center,
+        priority: 200, // Increased priority to be above tile glows (100)
+      );
 
   @override
   void onTapDown(TapDownEvent event) {
@@ -56,11 +59,39 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
       if (pos != null) {
         position = pos;
       }
-      
+
       // Initialize Health Bar (Add to Game for global Z-ordering)
       _healthBarComponent = HealthBarComponent(unitModel: unitModel);
       game.add(_healthBarComponent!);
+
+      // Load animation if this is the Manipulator
+      if (unitModel.name.toLowerCase() == 'manipulator') {
+        _loadAnimation(game);
+      }
     }
+  }
+
+  Future<void> _loadAnimation(MyGame game) async {
+    final spriteSheet = await game.images.load(
+      'battle/units/gridExpert-Sheet.png',
+    );
+    // Using 12 frames based on 2004px width / 167px per frame (approx 160 as requested)
+    final animation = SpriteAnimation.fromFrameData(
+      spriteSheet,
+      SpriteAnimationData.sequenced(
+        amount: 12,
+        stepTime: 0.1,
+        textureSize: Vector2(167, 210),
+      ),
+    );
+
+    _animationComponent = SpriteAnimationComponent(
+      animation: animation,
+      size: Vector2(42, 56), // 30% smaller
+      anchor: Anchor.bottomCenter,
+      position: Vector2(size.x / 2, size.y / 2), // Center of the tile
+    );
+    add(_animationComponent!);
   }
 
   @override
@@ -119,11 +150,7 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
 
     _pulseEffect = OpacityEffect.to(
       1.0,
-      EffectController(
-        duration: 0.8,
-        reverseDuration: 0.8,
-        infinite: true,
-      ),
+      EffectController(duration: 0.8, reverseDuration: 0.8, infinite: true),
       onComplete: () {
         // This won't run because infinite is true, but good practice
       },
@@ -140,7 +167,7 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
 
   // Shield animation
   double _shieldRotation = 0.0;
-  
+
   void applyShield() {
     unitModel.hasShield = true;
   }
@@ -148,7 +175,6 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
   void consumeShield() {
     unitModel.hasShield = false;
   }
-
 
   // Damage Preview State
   int _previewDamageAmount = 0;
@@ -167,87 +193,94 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
   }
 
   void triggerDamageReaction() {
-      // Flash Red Effect
-      _damageFlashEffect?.removeFromParent();
-      _damageFlashEffect = ColorEffect(
-          const Color(0xFFFF0000), // Red
-          EffectController(
-            duration: 0.2, // Quick Flash
-            reverseDuration: 0.2,
-            repeatCount: 5, // Pulse a few times for approx 2 seconds total? No, 0.4 * 5 = 2.0s
-          ),
-          opacityTo: 0.7,
-      );
-      add(_damageFlashEffect!);
-      
-      // Shake Effect
-      add(
-          MoveEffect.by(
-              Vector2(5, 0), 
-              EffectController(
-                  duration: 0.05,
-                  reverseDuration: 0.05,
-                  repeatCount: 10, // Shake for 1s
-              ),
-          ),
-      );
+    // Flash Red Effect
+    _damageFlashEffect?.removeFromParent();
+    _damageFlashEffect = ColorEffect(
+      const Color(0xFFFF0000), // Red
+      EffectController(
+        duration: 0.2, // Quick Flash
+        reverseDuration: 0.2,
+        repeatCount:
+            5, // Pulse a few times for approx 2 seconds total? No, 0.4 * 5 = 2.0s
+      ),
+      opacityTo: 0.7,
+    );
+    add(_damageFlashEffect!);
+
+    // Shake Effect
+    add(
+      MoveEffect.by(
+        Vector2(5, 0),
+        EffectController(
+          duration: 0.05,
+          reverseDuration: 0.05,
+          repeatCount: 10, // Shake for 1s
+        ),
+      ),
+    );
   }
 
   @override
   void update(double dt) {
-      super.update(dt);
-      
-      // Update Shield
-      if (unitModel.hasShield) {
-        _shieldRotation += dt * 1.5;
+    super.update(dt);
+
+    // Update Shield
+    if (unitModel.hasShield) {
+      _shieldRotation += dt * 1.5;
+    }
+
+    // Update Damage Preview Flash
+    if (_previewDamageAmount > 0) {
+      double speed = 2.0; // Flash speed
+      if (_flashAscending) {
+        _flashTimer += dt * speed;
+        if (_flashTimer >= 1.0) {
+          _flashTimer = 1.0;
+          _flashAscending = false;
+        }
+      } else {
+        _flashTimer -= dt * speed;
+        if (_flashTimer <= 0.0) {
+          _flashTimer = 0.0;
+          _flashAscending = true;
+        }
       }
-      
-      // Update Damage Preview Flash
-      if (_previewDamageAmount > 0) {
-          double speed = 2.0; // Flash speed
-          if (_flashAscending) {
-              _flashTimer += dt * speed;
-              if (_flashTimer >= 1.0) {
-                  _flashTimer = 1.0;
-                  _flashAscending = false;
-              }
-          } else {
-              _flashTimer -= dt * speed;
-              if (_flashTimer <= 0.0) {
-                  _flashTimer = 0.0;
-                  _flashAscending = true;
-              }
-          }
-          _currentFlashIntensity = _flashTimer; // 0..1
-      }
-      
-      // Update Health Bar
-      if (_healthBarComponent != null) {
-          // Position above unit
-          _healthBarComponent!.position = position + Vector2(0, -35); // Adjust offset as needed
-          
-          // Sync State
-          _healthBarComponent!.setPreviewDamage(
-              _previewDamageAmount, 
-              _willLoseShield, 
-              _currentFlashIntensity
-          );
-          
-          // Visibility Logic
-          bool shouldShow = _isSelectedForAction || _isHovered || _previewDamageAmount > 0 || _willLoseShield;
-          _healthBarComponent!.isVisible = shouldShow;
-      }
+      _currentFlashIntensity = _flashTimer; // 0..1
+    }
+
+    // Update Health Bar
+    if (_healthBarComponent != null) {
+      // Position above unit
+      _healthBarComponent!.position =
+          position + Vector2(0, -35); // Adjust offset as needed
+
+      // Sync State
+      _healthBarComponent!.setPreviewDamage(
+        _previewDamageAmount,
+        _willLoseShield,
+        _currentFlashIntensity,
+      );
+
+      // Visibility Logic
+      bool shouldShow =
+          _isSelectedForAction ||
+          _isHovered ||
+          _previewDamageAmount > 0 ||
+          _willLoseShield;
+      _healthBarComponent!.isVisible = shouldShow;
+    }
   }
-
-
 
   @override
   void render(Canvas canvas) {
     super.render(canvas);
 
     final radius = size.x / 2;
-    // Center of the component's bounding box (canvas origin is top-left)
-    final center = Offset(size.x / 2, size.y / 2);
+    // Center for standard units (center of component)
+    // For animated units, we offset up because anchor is bottomCenter at component center
+    final center = _animationComponent != null
+        ? Offset(size.x / 2, size.y / 2 - 28) // Offset up by half height (56/2)
+        : Offset(size.x / 2, size.y / 2);
 
     // Draw halo if selectable or selected
     if (_isSelectable || _isSelectedForAction) {
@@ -255,44 +288,53 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
         ..color = _haloColor.withValues(alpha: _haloOpacity * 0.6)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
 
-      canvas.drawCircle(center, radius + 8, haloPaint);
+      // Increase halo radius for animated units
+      final haloRadius = _animationComponent != null ? 30.0 : radius + 8;
+      canvas.drawCircle(center, haloRadius, haloPaint);
 
       // Inner glow
       final innerGlowPaint = Paint()
         ..color = _haloColor.withValues(alpha: _haloOpacity * 0.4)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
 
-      canvas.drawCircle(center, radius + 4, innerGlowPaint);
+      canvas.drawCircle(center, haloRadius - 4, innerGlowPaint);
     }
-    
 
-    
     // Draw Shield (Green Spinner)
     if (unitModel.hasShield) {
-        final shieldPaint = Paint()
-            ..color = const Color(0xFF69F0AE)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 3.0
-            ..strokeCap = StrokeCap.round;
-            
-        // Flash shield if pending loss
-        if (_willLoseShield) {
-             final flashColor = Color.lerp(
-                const Color(0xFF69F0AE),
-                const Color(0xFFFF0000).withValues(alpha: 0.0), // Fade to transparent/red
-                _currentFlashIntensity
-             ) ?? const Color(0xFF69F0AE);
-             shieldPaint.color = flashColor;
-        }
-            
-        final rect = Rect.fromCircle(center: center, radius: radius + 2);
-        
-        // Draw 3 animated arcs
-        for (int i = 0; i < 3; i++) {
-            final startAngle = _shieldRotation + (i * (3.14159 * 2 / 3));
-            canvas.drawArc(rect, startAngle, 1.5, false, shieldPaint);
-        }
+      final shieldPaint = Paint()
+        ..color = const Color(0xFF69F0AE)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.0
+        ..strokeCap = StrokeCap.round;
+
+      // Flash shield if pending loss
+      if (_willLoseShield) {
+        final flashColor =
+            Color.lerp(
+              const Color(0xFF69F0AE),
+              const Color(
+                0xFFFF0000,
+              ).withValues(alpha: 0.0), // Fade to transparent/red
+              _currentFlashIntensity,
+            ) ??
+            const Color(0xFF69F0AE);
+        shieldPaint.color = flashColor;
+      }
+
+      // Increase shield radius for animated units
+      final shieldRadius = _animationComponent != null ? 28.0 : radius + 2;
+      final rect = Rect.fromCircle(center: center, radius: shieldRadius);
+
+      // Draw 3 animated arcs
+      for (int i = 0; i < 3; i++) {
+        final startAngle = _shieldRotation + (i * (3.14159 * 2 / 3));
+        canvas.drawArc(rect, startAngle, 1.5, false, shieldPaint);
+      }
     }
+
+    // If we have an animation component, skip the rest (base circle/icon)
+    if (_animationComponent != null) return;
 
     // Determine color and icon based on unit type
     Color unitColor;
@@ -338,7 +380,9 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
 
     // Border
     final borderPaint = Paint()
-      ..color = _isSelectedForAction ? Colors.white : Colors.white.withValues(alpha: 0.8)
+      ..color = _isSelectedForAction
+          ? Colors.white
+          : Colors.white.withValues(alpha: 0.8)
       ..style = PaintingStyle.stroke
       ..strokeWidth = _isSelectedForAction ? 3.0 : 2.0;
     canvas.drawCircle(center, radius, borderPaint);
@@ -358,7 +402,10 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
     textPainter.layout();
     textPainter.paint(
       canvas,
-      Offset(center.dx - textPainter.width / 2, center.dy - textPainter.height / 2),
+      Offset(
+        center.dx - textPainter.width / 2,
+        center.dy - textPainter.height / 2,
+      ),
     );
   }
 
@@ -370,102 +417,89 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
     return (point - center).length <= radius;
   }
 
-
-
-
   // Move unit to new grid coordinates with animation
   Future<void> moveTo(
-    int newX, 
-    int newY, 
-    {
-      List<TileModel>? path, 
-      double stepDuration = 0.3,
-      Future<void> Function(TileModel)? onTileEntered,
-    }
-  ) async {
+    int newX,
+    int newY, {
+    List<TileModel>? path,
+    double stepDuration = 0.3,
+    Future<void> Function(TileModel)? onTileEntered,
+  }) async {
     final game = findParent<MyGame>();
     if (game == null) return;
-    
+
     if (path != null && path.isNotEmpty) {
-      
       List<TileModel> actualPath = path;
-      
+
       for (int i = 0; i < actualPath.length; i++) {
         final tile = actualPath[i];
         final targetPos = game.getTilePosition(tile.x, tile.y);
-        
+
         if (targetPos != null) {
           final completer = Completer<void>();
-          
+
           add(
             MoveEffect.to(
               targetPos,
-              EffectController(
-                duration: stepDuration,
-                curve: Curves.linear,
-              ),
+              EffectController(duration: stepDuration, curve: Curves.linear),
               onComplete: () {
                 completer.complete();
               },
             ),
           );
-          
+
           // Wait for visual move to finish
           await completer.future;
-          
+
           // Update model coordinates step-by-step
           unitModel.x = tile.x;
           unitModel.y = tile.y;
-          
+
           // Trigger logical tile enter (can be async, e.g. for ambush)
           if (onTileEntered != null) {
-             await onTileEntered(tile);
+            await onTileEntered(tile);
           }
-          
+
           // Check death after callback (ambush might have killed us)
           if (unitModel.currentHP <= 0) {
-              // Stop movement processing if dead
-              break; 
+            // Stop movement processing if dead
+            break;
           }
         }
       }
-      
     } else {
       // Direct movement (fallback)
       final targetPos = game.getTilePosition(newX, newY);
       if (targetPos == null) return;
 
       final completer = Completer<void>();
-      
+
       add(
         MoveEffect.to(
           targetPos,
-          EffectController(
-            duration: 0.6,
-            curve: Curves.elasticOut,
-          ),
+          EffectController(duration: 0.6, curve: Curves.elasticOut),
           onComplete: () {
-             completer.complete();
+            completer.complete();
           },
         ),
       );
-      
+
       await completer.future;
-      
+
       // Update coordinates
       unitModel.x = newX;
       unitModel.y = newY;
-      
+
       if (onTileEntered != null) {
-          final tile = game.gridData.getTileAt(newX, newY);
-          if (tile != null) await onTileEntered(tile);
+        final tile = game.gridData.getTileAt(newX, newY);
+        if (tile != null) await onTileEntered(tile);
       }
     }
-    
+
     // Ensure final consistency if not dead
     if (unitModel.currentHP > 0) {
-        unitModel.x = newX;
-        unitModel.y = newY;
+      unitModel.x = newX;
+      unitModel.y = newY;
     }
   }
 }
