@@ -230,7 +230,7 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
     }
 
     // Update Damage Preview Flash
-    if (_previewDamageAmount > 0) {
+    if (_previewDamageAmount > 0 || _willLoseShield) {
       double speed = 2.0; // Flash speed
       if (_flashAscending) {
         _flashTimer += dt * speed;
@@ -246,6 +246,10 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
         }
       }
       _currentFlashIntensity = _flashTimer; // 0..1
+    } else {
+      _currentFlashIntensity = 0.0;
+      _flashTimer = 0.0;
+      _flashAscending = true;
     }
 
     // Update Health Bar
@@ -313,9 +317,7 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
         final flashColor =
             Color.lerp(
               const Color(0xFF69F0AE),
-              const Color(
-                0xFFFF0000,
-              ).withValues(alpha: 0.0), // Fade to transparent/red
+              const Color(0xFFFF0000), // Solid red for flash
               _currentFlashIntensity,
             ) ??
             const Color(0xFF69F0AE);
@@ -411,7 +413,19 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
 
   @override
   bool containsLocalPoint(Vector2 point) {
-    // Check if point is inside the circle (centered in bounding box)
+    if (_animationComponent != null) {
+      // Use the bounds of the animation component
+      // position is (size.x/2, size.y/2), anchor is bottomCenter, size is (42, 56)
+      final anim = _animationComponent!;
+      final animRect = Rect.fromLTWH(
+        anim.position.x - anim.size.x / 2,
+        anim.position.y - anim.size.y,
+        anim.size.x,
+        anim.size.y,
+      );
+      return animRect.contains(point.toOffset());
+    }
+    // Fallback for standard circular units
     final radius = size.x / 2;
     final center = Vector2(size.x / 2, size.y / 2);
     return (point - center).length <= radius;

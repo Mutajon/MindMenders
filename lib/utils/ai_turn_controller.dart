@@ -183,8 +183,11 @@ class AITurnController {
           return false;
         }
 
+        int tilesCapturedThisStep = 0;
+
         if (tile.alliance.toLowerCase() == 'neutral') {
           game.tileControlChange(tile, unitAlliance);
+          tilesCapturedThisStep++;
 
           final neighbors = game.gridUtils.getNeighbors(tile.x, tile.y);
           for (final p in neighbors) {
@@ -194,11 +197,26 @@ class AITurnController {
                 neighbor.alliance.toLowerCase() == 'neutral') {
               if (!isInFuturePath(neighbor)) {
                 game.tileControlChange(neighbor, unitAlliance);
+                tilesCapturedThisStep++;
               }
             }
           }
         } else if (tile.alliance != unitAlliance) {
           game.tileControlChange(tile, unitAlliance);
+          tilesCapturedThisStep++;
+        }
+
+        // Show Visual Feedback for this step
+        if (tilesCapturedThisStep > 0 && game.totalControllableTiles > 0) {
+          final percent =
+              (tilesCapturedThisStep / game.totalControllableTiles * 100)
+                  .floor();
+          if (percent > 0) {
+            final pos = game.getTilePosition(tile.x, tile.y);
+            if (pos != null) {
+              game.showControlChange(pos, percent, unitAlliance);
+            }
+          }
         }
       },
     );

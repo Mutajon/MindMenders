@@ -51,6 +51,7 @@ class MyGame extends Forge2DGame
 
   // Cache for total controllable tiles to calculate percentages efficiently
   int _totalControllableTiles = 0;
+  int get totalControllableTiles => _totalControllableTiles;
 
   // Tile lookup map for efficient coordinate-based access
   final Map<String, IsometricTile> _tileComponents = {};
@@ -483,7 +484,17 @@ class MyGame extends Forge2DGame
 
   void _updateMovementArrow(TileModel? targetTile) {
     // Check conditions
-    if (selectedUnitForMovement == null || targetTile == null) {
+    if (selectedUnitForMovement == null) {
+      return;
+    }
+
+    if (targetTile == null) {
+      _currentPath.clear();
+      if (_movementArrow != null) {
+        _movementArrow!.removeFromParent();
+        _movementArrow = null;
+      }
+      selectedUnitForMovement!.setPreviewDamage(0, willLoseShield: false);
       return;
     }
 
@@ -568,6 +579,33 @@ class MyGame extends Forge2DGame
       color: const Color(0xFF448AFF), // Blue to match move card
     );
     add(_movementArrow!);
+
+    // Calculate pending damage for movement preview
+    int pendingDamage = 0;
+    bool willLoseShield = false;
+    bool currentHasShield = selectedUnitForMovement!.unitModel.hasShield;
+
+    // Skip start tile at index 0
+    for (int i = 1; i < _currentPath.length; i++) {
+      final tile = _currentPath[i];
+      if (_dangerMap.containsKey(tile)) {
+        final attackers = _dangerMap[tile]!;
+        for (final attacker in attackers) {
+          int damage = attacker.unitModel.attackValue;
+          if (currentHasShield) {
+            willLoseShield = true;
+            currentHasShield =
+                false; // Shield is gone for further steps in this path
+          } else {
+            pendingDamage += damage;
+          }
+        }
+      }
+    }
+    selectedUnitForMovement!.setPreviewDamage(
+      pendingDamage,
+      willLoseShield: willLoseShield,
+    );
   }
 
   // Handle tile tap from IsometricTile
@@ -622,6 +660,7 @@ class MyGame extends Forge2DGame
 
     // Consume card immediately to lock interaction
     _consumeSelectedCard();
+    unitComponent.setPreviewDamage(0, willLoseShield: false);
 
     // Move unit along path
     await unitComponent.moveTo(
@@ -1098,7 +1137,7 @@ class MyGame extends Forge2DGame
         manipulatorTile.x,
         manipulatorTile.y,
       );
-      add(UnitComponent(unitModel: manipulator));
+      await add(UnitComponent(unitModel: manipulator));
     }
 
     // Crazy Nina
@@ -1106,7 +1145,7 @@ class MyGame extends Forge2DGame
     if (ninaTile != null) {
       occupiedTiles.add(ninaTile);
       final nina = UnitDatabase.create('Crazy Nina', ninaTile.x, ninaTile.y);
-      add(UnitComponent(unitModel: nina));
+      await add(UnitComponent(unitModel: nina));
     }
 
     // Spawn Hive Units (In Hive Controlled Territory)
@@ -1121,7 +1160,7 @@ class MyGame extends Forge2DGame
         terminatorTile.x,
         terminatorTile.y,
       );
-      add(UnitComponent(unitModel: terminator));
+      await add(UnitComponent(unitModel: terminator));
     }
 
     // Sweeper
@@ -1133,7 +1172,7 @@ class MyGame extends Forge2DGame
         sweeperTile.x,
         sweeperTile.y,
       );
-      add(UnitComponent(unitModel: sweeper));
+      await add(UnitComponent(unitModel: sweeper));
     }
 
     // Initial capture for new units
@@ -1389,9 +1428,12 @@ class MyGame extends Forge2DGame
     }
     _dangerMap.clear();
 
-    // Find all Hive units
+    // Find all active Hive units
     final hiveUnits = children.whereType<UnitComponent>().where(
-      (u) => u.unitModel.alliance == 'Hive',
+      (u) =>
+          u.unitModel.alliance == 'Hive' &&
+          u.unitModel.currentHP > 0 &&
+          !u.isRemoving,
     );
 
     for (final unit in hiveUnits) {
@@ -1581,15 +1623,15 @@ class MyGame extends Forge2DGame
       print('Unit HP: ${unit.unitModel.currentHP} / ${unit.unitModel.maxHP}');
 
       if (unit.unitModel.currentHP <= 0) {
-        // Delay removal slightly to show death effect or allow flash to start
-        // But requirements say "unit is dead and removed".
+        // Trigger immediate danger zone update since this unit is no longer a threat
+        updateDangerZones();
 
-        // Let's try to keep it for 0.5s to show the red flash, then remove.
+        // Delay removal slightly to show death effect or allow flash to start
         Future.delayed(const Duration(milliseconds: 500), () {
           unit.removeFromParent();
           print('${unit.unitModel.name} destroyed!');
 
-          // FIX: Always update danger zones when ANY unit dies to ensure UI consistency
+          // Final update once truly removed (cleanup)
           updateDangerZones();
         });
       }
