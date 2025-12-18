@@ -132,8 +132,8 @@ class MyGame extends Forge2DGame
   // Energy System
   int currentEnergy = 4;
 
-  // Debug Mode
-  bool debugMode = true; // Default on for testing
+  // AI Debug Mode (shows scores on tiles)
+  bool aiDebugMode = true;
 
   // Debug components
   DebugScoreOverlay? _debugScoreOverlay;
@@ -714,6 +714,10 @@ class MyGame extends Forge2DGame
     print('Ambush Triggered! ${attackers.length} attackers.');
 
     for (final attacker in attackers) {
+      // FIX: Check if attacker is still alive and prevent friendly fire
+      if (attacker.unitModel.currentHP <= 0) continue;
+      if (attacker.unitModel.alliance == victim.unitModel.alliance) continue;
+
       // Check if victim is dead
       if (victim.unitModel.currentHP <= 0) break;
 
@@ -1220,7 +1224,7 @@ class MyGame extends Forge2DGame
     currentEnergy = 4;
     _updateEnergyIndicator();
 
-    _updateDangerZones(); // Update danger zones at start of player turn
+    updateDangerZones(); // Update danger zones at start of player turn
     drawCards(5);
   }
 
@@ -1377,7 +1381,7 @@ class MyGame extends Forge2DGame
   final Map<TileModel, List<UnitComponent>> _dangerMap = {};
   final List<AttackPathIndicator> _activeDangerPaths = [];
 
-  void _updateDangerZones() {
+  void updateDangerZones() {
     // Clear previous state
     for (final tileComp in children.whereType<IsometricTile>()) {
       tileComp.setIsDanger(false);
@@ -1584,10 +1588,8 @@ class MyGame extends Forge2DGame
           unit.removeFromParent();
           print('${unit.unitModel.name} destroyed!');
 
-          // If Hive unit died, update danger zones
-          if (unit.unitModel.alliance == 'Hive') {
-            _updateDangerZones();
-          }
+          // FIX: Always update danger zones when ANY unit dies to ensure UI consistency
+          updateDangerZones();
         });
       }
     }

@@ -46,7 +46,7 @@ class AITurnController {
     }
 
     // 2. Show debug visualization if enabled
-    if (game.debugMode) {
+    if (game.aiDebugMode) {
       await _showDebugScores(scores, unit);
     }
 
@@ -65,7 +65,7 @@ class AITurnController {
     await _executeAttack(unit);
 
     // 6. Clear debug visualization
-    if (game.debugMode) {
+    if (game.aiDebugMode) {
       game.clearDebugScores();
     }
   }
@@ -173,7 +173,6 @@ class AITurnController {
         if (unit.unitModel.currentHP <= 0) return;
 
         // Capture logic
-        int tilesCapturedThisStep = 0;
 
         bool isInFuturePath(TileModel candidate) {
           final currentIndex = path.indexOf(tile);
@@ -186,7 +185,6 @@ class AITurnController {
 
         if (tile.alliance.toLowerCase() == 'neutral') {
           game.tileControlChange(tile, unitAlliance);
-          tilesCapturedThisStep++;
 
           final neighbors = game.gridUtils.getNeighbors(tile.x, tile.y);
           for (final p in neighbors) {
@@ -196,16 +194,17 @@ class AITurnController {
                 neighbor.alliance.toLowerCase() == 'neutral') {
               if (!isInFuturePath(neighbor)) {
                 game.tileControlChange(neighbor, unitAlliance);
-                tilesCapturedThisStep++;
               }
             }
           }
         } else if (tile.alliance != unitAlliance) {
           game.tileControlChange(tile, unitAlliance);
-          tilesCapturedThisStep++;
         }
       },
     );
+
+    // FIX: Update danger zones after movement to refresh UI
+    game.updateDangerZones();
   }
 
   /// Execute attack if player unit is in range
