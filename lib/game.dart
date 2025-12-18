@@ -332,6 +332,25 @@ class MyGame extends Forge2DGame
     _energyIndicator.updateEnergy(currentEnergy);
   }
 
+  bool isNextToNeuron(int x, int y) {
+    final neighbors = gridUtils.getNeighbors(x, y);
+    for (final p in neighbors) {
+      final tile = gridData.getTileAt(p.$1, p.$2);
+      if (tile != null && tile.type == 'Neuron') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  int getEffectiveMovementPoints(UnitComponent unit) {
+    int points = unit.unitModel.movementPoints;
+    if (isNextToNeuron(unit.unitModel.x, unit.unitModel.y)) {
+      points += 1;
+    }
+    return points;
+  }
+
   void _showMovementBorder(UnitComponent unit) {
     // Calculate blocked tiles (occupied by non-Menders)
     final blockedTiles = <String>{};
@@ -341,44 +360,81 @@ class MyGame extends Forge2DGame
       }
     }
 
-    // Calculate reachable tiles
-    final reachableTiles = PathfindingUtils.calculateReachableTiles(
+    final hasNeuronBuff = isNextToNeuron(unit.unitModel.x, unit.unitModel.y);
+    final baseRange = unit.unitModel.movementPoints;
+
+    // Calculate base reachable tiles
+    final baseReachableTiles = PathfindingUtils.calculateReachableTiles(
       startX: unit.unitModel.x,
       startY: unit.unitModel.y,
-      range: unit.unitModel.movementPoints,
+      range: baseRange,
       gridData: gridData,
       blockedTiles: blockedTiles,
     );
 
-    // Update interaction state
-    highlightedMovementTiles = reachableTiles;
+    List<TileModel> finalReachableTiles = baseReachableTiles;
+    final List<MovementBorderComponent> borders = [];
 
-    // Create Visual Border
+    // Base Border (Blue)
     final baseBlue = HSVColor.fromColor(const Color(0xFF448AFF));
-    final border = MovementBorderComponent(
+    final baseBorder = MovementBorderComponent(
       baseColor: baseBlue.toColor(),
       priority: 200,
-    ); // Render above tiles (0) and glow (100)
-    add(border);
+    );
+    add(baseBorder);
 
-    final borderTiles = reachableTiles.toSet();
+    final baseBorderTiles = baseReachableTiles.toSet();
     final currentTile = gridData.getTileAt(unit.unitModel.x, unit.unitModel.y);
-    if (currentTile != null) borderTiles.add(currentTile);
+    if (currentTile != null) baseBorderTiles.add(currentTile);
+    baseBorder.updateTiles(baseBorderTiles);
+    borders.add(baseBorder);
 
-    border.updateTiles(borderTiles);
+    if (hasNeuronBuff) {
+      // Extended Border (Fuchsia)
+      final extendedRange = baseRange + 1;
+      final extendedReachableTiles = PathfindingUtils.calculateReachableTiles(
+        startX: unit.unitModel.x,
+        startY: unit.unitModel.y,
+        range: extendedRange,
+        gridData: gridData,
+        blockedTiles: blockedTiles,
+      );
 
-    _unitBorders[unit] = border;
+      final fuchsia = const Color(0xFFFF00FF);
+      final extendedBorder = MovementBorderComponent(
+        baseColor: fuchsia,
+        priority: 199, // Render slightly below base border? Or above?
+      );
+      add(extendedBorder);
+
+      final extendedBorderTiles = extendedReachableTiles.toSet();
+      if (currentTile != null) extendedBorderTiles.add(currentTile);
+      extendedBorder.updateTiles(extendedBorderTiles);
+      borders.add(extendedBorder);
+
+      finalReachableTiles = extendedReachableTiles;
+    }
+
+    // Update interaction state
+    highlightedMovementTiles = finalReachableTiles;
+    _unitBorders[unit] = borders;
   }
 
   void _hideMovementBorder(UnitComponent unit) {
     if (_unitBorders.containsKey(unit)) {
-      _unitBorders[unit]!.removeFromParent();
+      for (final border in _unitBorders[unit]!) {
+        border.removeFromParent();
+      }
       _unitBorders.remove(unit);
     }
   }
 
   void _clearAllUnitBorders() {
-    _unitBorders.values.forEach((b) => b.removeFromParent());
+    for (final borders in _unitBorders.values) {
+      for (final border in borders) {
+        border.removeFromParent();
+      }
+    }
     _unitBorders.clear();
   }
 
@@ -409,7 +465,7 @@ class MyGame extends Forge2DGame
   MovementPathArrow? _movementArrow;
 
   // Movement border map
-  final Map<UnitComponent, MovementBorderComponent> _unitBorders = {};
+  final Map<UnitComponent, List<MovementBorderComponent>> _unitBorders = {};
 
   // Current manual path
   final List<TileModel> _currentPath = [];
@@ -452,7 +508,7 @@ class MyGame extends Forge2DGame
       if (isNeighbor &&
           targetTile.walkable &&
           _currentPath.length <=
-              selectedUnitForMovement!.unitModel.movementPoints &&
+              getEffectiveMovementPoints(selectedUnitForMovement!) &&
           highlightedMovementTiles.contains(targetTile)) {
         _currentPath.add(targetTile);
       } else if (highlightedMovementTiles.contains(targetTile)) {
