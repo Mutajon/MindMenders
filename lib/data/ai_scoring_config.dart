@@ -16,6 +16,8 @@ enum ScoringCriterion {
   closerToPlayerMemory, // Closer to nearest player Memory (step distance)
   closerToPlayerCluster, // Closer to nearest player tile cluster (step distance)
   closerToNeutralCluster, // Closer to nearest neutral tile cluster (step distance)
+  escapeRange, // Moving from a targetable tile to a non-targetable one (positive)
+  onHiveTile, // Standing on a Hive-controlled tile (negative for Sweepers)
 }
 
 /// AI scoring configuration database
@@ -35,6 +37,8 @@ class AIScoringConfig {
       ScoringCriterion.closerToPlayerMemory: 1,
       ScoringCriterion.closerToPlayerCluster: 4,
       ScoringCriterion.closerToNeutralCluster: 3,
+      ScoringCriterion.escapeRange: 6,
+      ScoringCriterion.onHiveTile: -5,
     },
     'Terminator 1.0': {
       ScoringCriterion.targetableByPlayer: -2,
@@ -49,6 +53,8 @@ class AIScoringConfig {
       ScoringCriterion.closerToPlayerMemory: 3,
       ScoringCriterion.closerToPlayerCluster: 2,
       ScoringCriterion.closerToNeutralCluster: 0,
+      ScoringCriterion.escapeRange: 6,
+      ScoringCriterion.onHiveTile: 0,
     },
   };
 

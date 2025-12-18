@@ -2,7 +2,6 @@ import 'package:mind_control/components/unit_component.dart';
 import 'package:mind_control/data/ai_scoring_config.dart';
 import 'package:mind_control/game.dart';
 import 'package:mind_control/models/tile_model.dart';
-import 'package:mind_control/utils/pathfinding_utils.dart';
 
 /// Tile scoring engine for AI decision making
 class TileScorer {
@@ -64,6 +63,10 @@ class TileScorer {
         return _scoreCloserToCluster(tile, 'Menders');
       case ScoringCriterion.closerToNeutralCluster:
         return _scoreCloserToCluster(tile, 'Neutral');
+      case ScoringCriterion.escapeRange:
+        return _scoreEscapeRange(tile, unit);
+      case ScoringCriterion.onHiveTile:
+        return tile.alliance.toLowerCase() == 'hive' ? 1.0 : 0.0;
     }
   }
 
@@ -167,6 +170,26 @@ class TileScorer {
       }
     }
     return 0.0;
+  }
+
+  /// Score for escaping player attack range
+  double _scoreEscapeRange(TileModel targetTile, UnitComponent unit) {
+    // 1. Get current tile
+    final currentTile = game.gridData.getTileAt(
+      unit.unitModel.x,
+      unit.unitModel.y,
+    );
+    if (currentTile == null) return 0.0;
+
+    // 2. Is current tile targetable?
+    final currentIsTargetable = _countTargetableByPlayer(currentTile) > 0;
+    if (!currentIsTargetable) return 0.0;
+
+    // 3. Is target tile non-targetable?
+    final targetIsTargetable = _countTargetableByPlayer(targetTile) > 0;
+
+    // If starting in danger and moving to safety, return 1.0 (will be multiplied by weight 6)
+    return !targetIsTargetable ? 1.0 : 0.0;
   }
 
   /// Score based on distance to nearest player unit
