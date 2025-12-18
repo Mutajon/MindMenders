@@ -28,11 +28,15 @@ import 'package:flame_audio/flame_audio.dart';
 import 'components/floating_text_component.dart';
 import 'components/energy_indicator_component.dart';
 import 'components/end_turn_button_component.dart';
+import 'components/hive_spreading_indicator.dart';
+import 'components/debug_score_overlay.dart';
+import 'utils/ai_turn_controller.dart';
 
 class MyGame extends Forge2DGame
     with MouseMovementDetector, KeyboardEvents, SecondaryTapDetector {
   late GridData gridData;
   late GridUtils gridUtils;
+  late AITurnController aiController;
   late AttackUtils attackUtils;
   TileModel? hoveredTile;
   UnitModel? hoveredUnit;
@@ -127,6 +131,13 @@ class MyGame extends Forge2DGame
 
   // Energy System
   int currentEnergy = 4;
+
+  // Debug Mode
+  bool debugMode = true; // Default on for testing
+
+  // Debug components
+  DebugScoreOverlay? _debugScoreOverlay;
+  HiveSpreadingIndicator? _hiveSpreadingIndicator;
 
   // Handle card selection (only one card can be selected at a time)
   void selectCard(CardComponent card) {
@@ -623,7 +634,7 @@ class MyGame extends Forge2DGame
         if (tile.x == startX && tile.y == startY) return;
 
         // Handle Ambush (Reactionary Fire) - Triggers on entering ANY danger tile
-        await _handleAmbush(unitComponent, tile);
+        await handleAmbush(unitComponent, tile);
 
         if (!tile.controllable) return;
         if (unitComponent.unitModel.currentHP <= 0)
@@ -691,7 +702,8 @@ class MyGame extends Forge2DGame
     _currentPath.clear();
   }
 
-  Future<void> _handleAmbush(UnitComponent victim, TileModel tile) async {
+  // Handle ambush for AI movement (made public for AI controller)
+  Future<void> handleAmbush(UnitComponent victim, TileModel tile) async {
     // Safe lookup for canonical tile to ensure map key is found
     final canonicalTile = gridData.getTileAt(tile.x, tile.y);
     if (canonicalTile == null || !_dangerMap.containsKey(canonicalTile)) return;
@@ -738,7 +750,7 @@ class MyGame extends Forge2DGame
       onHit: () {
         // Ensure we apply damage to the correct unit (victim)
         // _applyDamage uses tile lookup. Victim should be at tile.
-        _applyDamage(tile, damage);
+        applyDamage(tile, damage);
         completer.complete();
       },
     );
@@ -873,6 +885,9 @@ class MyGame extends Forge2DGame
       brainDamageCoordinates: level.brainDamageCoordinates,
       memoryCoordinates: level.memoryCoordinates,
     );
+
+    // Initialize AI controller
+    aiController = AITurnController(this);
 
     // Initial Control Calculation
     _calculateControlPercentages();
@@ -1098,7 +1113,7 @@ class MyGame extends Forge2DGame
     if (terminatorTile != null) {
       occupiedTiles.add(terminatorTile);
       final terminator = UnitDatabase.create(
-        'Terminator',
+        'Terminator 1.0',
         terminatorTile.x,
         terminatorTile.y,
       );
@@ -1110,7 +1125,7 @@ class MyGame extends Forge2DGame
     if (sweeperTile != null) {
       occupiedTiles.add(sweeperTile);
       final sweeper = UnitDatabase.create(
-        'Sweeper',
+        'Sweeper 1.0',
         sweeperTile.x,
         sweeperTile.y,
       );
@@ -1530,7 +1545,7 @@ class MyGame extends Forge2DGame
       targetPos: targetPos,
       isArtillery: selectedUnitForAttack!.unitModel.attackType == 'artillery',
       onHit: () {
-        _applyDamage(targetTile, damage);
+        applyDamage(targetTile, damage);
         // deselectCard(); // Already called by _consumeSelectedCard immediately
       },
     );
@@ -1539,7 +1554,7 @@ class MyGame extends Forge2DGame
     _consumeSelectedCard();
   }
 
-  void _applyDamage(TileModel tile, int damage) {
+  void applyDamage(TileModel tile, int damage) {
     final unitsAtTile = children.whereType<UnitComponent>().where(
       (u) => u.unitModel.x == tile.x && u.unitModel.y == tile.y,
     );
@@ -2011,12 +2026,51 @@ class MyGame extends Forge2DGame
     startAITurn();
   }
 
-  void startAITurn() {
-    print('AI Turn logic to be implemented...');
-    // For now, just immediately start new player turn for testing loop
-    Future.delayed(const Duration(seconds: 1), () {
+  Future<void> startAITurn() async {
+    print('Starting AI Turn...');
+
+    // Show "Hive Spreading" indicator
+    _hiveSpreadingIndicator = HiveSpreadingIndicator();
+    add(_hiveSpreadingIndicator!);
+
+    // Execute AI turn
+    await aiController.executeTurn();
+
+    // Remove indicator
+    _hiveSpreadingIndicator?.removeFromParent();
+    _hiveSpreadingIndicator = null;
+
+    // Return to player turn
+    Future.delayed(const Duration(milliseconds: 500), () {
       newTurn();
     });
+  }
+
+  // Debug visualization helpers
+  void showDebugScores(Map<TileModel, double> scores) {
+    clearDebugScores();
+    _debugScoreOverlay = DebugScoreOverlay(scores);
+    add(_debugScoreOverlay!);
+  }
+
+  void clearDebugScores() {
+    _debugScoreOverlay?.removeFromParent();
+    _debugScoreOverlay = null;
+  }
+
+  // Helper to create projectile component (for reuse by AI)
+  ProjectileComponent createProjectile({
+    required Vector2 startPos,
+    required Vector2 targetPos,
+    required bool isArtillery,
+    required VoidCallback onHit,
+  }) {
+    return ProjectileComponent(
+      startPos: startPos,
+      targetPos: targetPos,
+      isArtillery: isArtillery,
+      onHit: onHit,
+    );
   }
 
   // Console command: Show master card pool
