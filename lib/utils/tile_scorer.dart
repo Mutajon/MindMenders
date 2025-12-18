@@ -204,14 +204,16 @@ class TileScorer {
   double _scoreCloserToMemory(TileModel tile, String alliance) {
     int? minDistance;
 
-    for (final t in game.gridData.tiles) {
-      if (t.type == 'Memory' &&
-          t.alliance.toLowerCase() == alliance.toLowerCase()) {
-        final distance = _getStepDistance(tile.x, tile.y, t.x, t.y);
-        if (distance != null) {
-          minDistance = minDistance == null
-              ? distance
-              : (distance < minDistance ? distance : minDistance);
+    for (final row in game.gridData.tiles) {
+      for (final t in row) {
+        if (t.type == 'Memory' &&
+            t.alliance.toLowerCase() == alliance.toLowerCase()) {
+          final distance = _getStepDistance(tile.x, tile.y, t.x, t.y);
+          if (distance != null) {
+            minDistance = minDistance == null
+                ? distance
+                : (distance < minDistance ? distance : minDistance);
+          }
         }
       }
     }
@@ -255,7 +257,7 @@ class TileScorer {
           0,
           clusterScore,
         );
-        bestScore = score > bestScore ? score : bestScore;
+        bestScore = score > bestScore ? score.toDouble() : bestScore;
       }
     }
 
@@ -267,33 +269,35 @@ class TileScorer {
     final visited = <TileModel>{};
     final clusters = <List<TileModel>>[];
 
-    for (final tile in game.gridData.tiles) {
-      if (tile.alliance.toLowerCase() != alliance.toLowerCase()) continue;
-      if (visited.contains(tile)) continue;
+    for (final row in game.gridData.tiles) {
+      for (final t in row) {
+        if (t.alliance.toLowerCase() != alliance.toLowerCase()) continue;
+        if (visited.contains(t)) continue;
 
-      // BFS to find connected component
-      final cluster = <TileModel>[];
-      final queue = <TileModel>[tile];
-      visited.add(tile);
+        // BFS to find connected component
+        final cluster = <TileModel>[];
+        final queue = <TileModel>[t];
+        visited.add(t);
 
-      while (queue.isNotEmpty) {
-        final current = queue.removeAt(0);
-        cluster.add(current);
+        while (queue.isNotEmpty) {
+          final current = queue.removeAt(0);
+          cluster.add(current);
 
-        final neighbors = game.gridUtils.getNeighbors(current.x, current.y);
-        for (final (nx, ny) in neighbors) {
-          final neighbor = game.gridData.getTileAt(nx, ny);
-          if (neighbor != null &&
-              neighbor.alliance.toLowerCase() == alliance.toLowerCase() &&
-              !visited.contains(neighbor)) {
-            visited.add(neighbor);
-            queue.add(neighbor);
+          final neighbors = game.gridUtils.getNeighbors(current.x, current.y);
+          for (final (nx, ny) in neighbors) {
+            final neighbor = game.gridData.getTileAt(nx, ny);
+            if (neighbor != null &&
+                neighbor.alliance.toLowerCase() == alliance.toLowerCase() &&
+                !visited.contains(neighbor)) {
+              visited.add(neighbor);
+              queue.add(neighbor);
+            }
           }
         }
-      }
 
-      if (cluster.length >= 3) {
-        clusters.add(cluster);
+        if (cluster.length >= 3) {
+          clusters.add(cluster);
+        }
       }
     }
 
