@@ -30,7 +30,7 @@ class AIScoringConfig {
       ScoringCriterion.nextToNeuron: 2,
       ScoringCriterion.nextToNeutralMemory: 5,
       ScoringCriterion.nextToPlayerMemory: 7,
-      ScoringCriterion.onPlayerTile: 4,
+      ScoringCriterion.onPlayerTile: 0, // AI cannot move to player tiles
       ScoringCriterion.onNeutralAdjacentToNeutral: 1,
       ScoringCriterion.closerToPlayerUnit: -3,
       ScoringCriterion.closerToNeutralMemory: 2,
@@ -46,7 +46,7 @@ class AIScoringConfig {
       ScoringCriterion.nextToNeuron: 3,
       ScoringCriterion.nextToNeutralMemory: 3,
       ScoringCriterion.nextToPlayerMemory: 2,
-      ScoringCriterion.onPlayerTile: 0,
+      ScoringCriterion.onPlayerTile: 0, // AI cannot move to player tiles
       ScoringCriterion.onNeutralAdjacentToNeutral: 1,
       ScoringCriterion.closerToPlayerUnit: 3,
       ScoringCriterion.closerToNeutralMemory: 2,

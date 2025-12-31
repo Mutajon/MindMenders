@@ -22,51 +22,51 @@ class PathfindingUtils {
   }) {
     final Queue<_TileNode> queue = Queue();
     final Set<String> visited = {};
-    
+
     final startTile = gridData.getTileAt(startX, startY);
     final endTile = gridData.getTileAt(endX, endY);
-    
+
     if (startTile == null || endTile == null) return [];
-    
+
     queue.add(_TileNode(startTile, 0));
     visited.add('${startTile.x},${startTile.y}');
-    
+
     while (queue.isNotEmpty) {
       final current = queue.removeFirst();
       final currentTile = current.tile;
-      
+
       // Check if we reached the destination
       if (currentTile.x == endX && currentTile.y == endY) {
         return _reconstructPath(current);
       }
-      
+
       // Get neighbors
       final neighbors = _getNeighbors(currentTile.x, currentTile.y, gridData);
-      
+
       for (final neighbor in neighbors) {
         final key = '${neighbor.x},${neighbor.y}';
-        
+
         if (visited.contains(key)) continue;
         if (blockedTiles != null && blockedTiles.contains(key)) continue;
         if (!neighbor.walkable) continue;
-        
+
         visited.add(key);
         queue.add(_TileNode(neighbor, current.distance + 1, current));
       }
     }
-    
+
     return [];
   }
 
   static List<TileModel> _reconstructPath(_TileNode node) {
     final List<TileModel> path = [];
     _TileNode? current = node;
-    
+
     while (current != null) {
       path.add(current.tile);
       current = current.parent;
     }
-    
+
     // Reverse to get path from start to end
     return path.reversed.toList();
   }
@@ -79,6 +79,7 @@ class PathfindingUtils {
     required int range,
     required GridData gridData,
     Set<String>? blockedTiles,
+    String? excludeAlliance,
   }) {
     final List<TileModel> reachableTiles = [];
     final Set<String> visited = {};
@@ -110,12 +111,17 @@ class PathfindingUtils {
 
         // Skip if not walkable
         if (visited.contains(key)) continue;
-        
+
         // Skip if blocked
         if (blockedTiles != null && blockedTiles.contains(key)) continue;
 
         // Skip if not walkable
         if (!neighbor.walkable) continue;
+
+        // Skip if alliance matches excluded alliance
+        if (excludeAlliance != null &&
+            neighbor.alliance.toLowerCase() == excludeAlliance.toLowerCase())
+          continue;
 
         // Add to reachable list
         reachableTiles.add(neighbor);
@@ -128,7 +134,7 @@ class PathfindingUtils {
 
     return reachableTiles;
   }
-// ... existing _getNeighbors ...
+  // ... existing _getNeighbors ...
 
   static List<TileModel> _getNeighbors(int x, int y, GridData gridData) {
     final List<TileModel> neighbors = [];
@@ -136,11 +142,11 @@ class PathfindingUtils {
     // Axial hex coordinate neighbors (same for all positions - no row parity)
     // These correspond to the 6 directions in our isometric hex grid
     final offsets = [
-      [1, 0],   // Right (toward +x in screen)
-      [-1, 0],  // Left (toward -x in screen)
-      [0, 1],   // Lower-left diagonal
-      [0, -1],  // Upper-right diagonal
-      [1, 1],   // Bottom (Down)
+      [1, 0], // Right (toward +x in screen)
+      [-1, 0], // Left (toward -x in screen)
+      [0, 1], // Lower-left diagonal
+      [0, -1], // Upper-right diagonal
+      [1, 1], // Bottom (Down)
       [-1, -1], // Top (Up)
     ];
 
@@ -157,5 +163,3 @@ class PathfindingUtils {
     return neighbors;
   }
 }
-
-
