@@ -79,7 +79,6 @@ class PathfindingUtils {
     required int range,
     required GridData gridData,
     Set<String>? blockedTiles,
-    String? excludeAlliance,
   }) {
     final List<TileModel> reachableTiles = [];
     final Set<String> visited = {};
@@ -117,11 +116,6 @@ class PathfindingUtils {
 
         // Skip if not walkable
         if (!neighbor.walkable) continue;
-
-        // Skip if alliance matches excluded alliance
-        if (excludeAlliance != null &&
-            neighbor.alliance.toLowerCase() == excludeAlliance.toLowerCase())
-          continue;
 
         // Add to reachable list
         reachableTiles.add(neighbor);

@@ -92,7 +92,6 @@ class AITurnController {
       range: movementRange,
       gridData: game.gridData,
       blockedTiles: blockedTiles,
-      excludeAlliance: 'Menders', // AI cannot move onto player-controlled tiles
     );
 
     // Score each reachable tile

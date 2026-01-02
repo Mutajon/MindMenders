@@ -67,6 +67,10 @@ class TileScorer {
         return _scoreEscapeRange(tile, unit);
       case ScoringCriterion.onHiveTile:
         return tile.alliance.toLowerCase() == 'hive' ? 1.0 : 0.0;
+      case ScoringCriterion.encirclementRisk:
+        return _scoreEncirclementRisk(tile, unit);
+      case ScoringCriterion.largeNeutralCluster:
+        return _scoreLargeNeutralCluster(tile, unit);
     }
   }
 
@@ -384,5 +388,80 @@ class TileScorer {
       attackType,
     );
     return path != null;
+  }
+
+  /// MODULAR: Score encirclement risk (applies to all AI units)
+  /// Evaluates how surrounded this tile is by player-controlled tiles
+  /// Returns 0.0-1.0 representing the fraction of neighbors that are player tiles
+  double _scoreEncirclementRisk(TileModel tile, UnitComponent unit) {
+    final neighbors = game.gridUtils.getNeighbors(tile.x, tile.y);
+    int playerTiles = 0;
+    int totalWalkable = 0;
+
+    for (final (nx, ny) in neighbors) {
+      final neighbor = game.gridData.getTileAt(nx, ny);
+      if (neighbor == null || !neighbor.walkable) continue;
+      totalWalkable++;
+      if (neighbor.alliance.toLowerCase() == 'menders') {
+        playerTiles++;
+      }
+    }
+
+    if (totalWalkable == 0) return 0.0;
+
+    // Return fraction of walkable neighbors that are player-controlled
+    // Will be multiplied by negative weight to create penalty
+    return (playerTiles / totalWalkable);
+  }
+
+  /// MODULAR: Score large neutral clusters (Sweeper-specific, but can be applied to other units)
+  /// Uses size-weighted scoring to exponentially reward larger clusters
+  /// Distance threshold prevents pursuing extremely distant clusters
+  double _scoreLargeNeutralCluster(TileModel tile, UnitComponent unit) {
+    final clusters = _findClusters('Neutral');
+    if (clusters.isEmpty) return 0.0;
+
+    double bestScore = 0.0;
+    const int distanceThreshold =
+        8; // Don't consider clusters more than 8 tiles away
+
+    for (final cluster in clusters) {
+      if (cluster.length < 3) continue; // Need 3+ for a cluster
+
+      // Find closest tile in cluster
+      int? minDistance;
+      for (final clusterTile in cluster) {
+        final distance = _getStepDistance(
+          tile.x,
+          tile.y,
+          clusterTile.x,
+          clusterTile.y,
+        );
+        if (distance != null) {
+          minDistance = minDistance == null
+              ? distance
+              : (distance < minDistance ? distance : minDistance);
+        }
+      }
+
+      if (minDistance == null || minDistance > distanceThreshold) continue;
+
+      // Size bonus: exponentially reward larger clusters
+      // Small (3-5): 1.0x, Medium (6-10): 2.0x, Large (11+): 3.0x
+      final sizeBonus = cluster.length <= 5
+          ? 1.0
+          : cluster.length <= 10
+          ? 2.0
+          : 3.0;
+
+      // Score = (cluster size * size bonus) / (distance + 1)
+      // This heavily favors large clusters even at moderate distances
+      final clusterScore = cluster.length.toDouble();
+      final score = (clusterScore * sizeBonus) / (minDistance + 1);
+
+      bestScore = score > bestScore ? score : bestScore;
+    }
+
+    return bestScore;
   }
 }

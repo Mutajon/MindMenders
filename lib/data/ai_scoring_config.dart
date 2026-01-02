@@ -18,6 +18,8 @@ enum ScoringCriterion {
   closerToNeutralCluster, // Closer to nearest neutral tile cluster (step distance)
   escapeRange, // Moving from a targetable tile to a non-targetable one (positive)
   onHiveTile, // Standing on a Hive-controlled tile (negative for Sweepers)
+  encirclementRisk, // Risk of being surrounded by player tiles (negative, applies to all AI)
+  largeNeutralCluster, // Prioritize large neutral clusters with size weighting (Sweeper-specific)
 }
 
 /// AI scoring configuration database
@@ -25,20 +27,26 @@ class AIScoringConfig {
   /// Scoring weights per unit type
   static final Map<String, Map<ScoringCriterion, double>> unitScores = {
     'Sweeper 1.0': {
-      ScoringCriterion.targetableByPlayer: -5,
+      ScoringCriterion.targetableByPlayer: -2,
       ScoringCriterion.canTargetPlayer: 0,
       ScoringCriterion.nextToNeuron: 2,
-      ScoringCriterion.nextToNeutralMemory: 5,
+      ScoringCriterion.nextToNeutralMemory: 8,
       ScoringCriterion.nextToPlayerMemory: 7,
-      ScoringCriterion.onPlayerTile: 0, // AI cannot move to player tiles
-      ScoringCriterion.onNeutralAdjacentToNeutral: 1,
-      ScoringCriterion.closerToPlayerUnit: -3,
-      ScoringCriterion.closerToNeutralMemory: 2,
+      ScoringCriterion.onPlayerTile:
+          4, // Re-enabled: AI can now recapture player territory
+      ScoringCriterion.onNeutralAdjacentToNeutral: 3,
+      ScoringCriterion.closerToPlayerUnit: -1,
+      ScoringCriterion.closerToNeutralMemory: 5,
       ScoringCriterion.closerToPlayerMemory: 1,
       ScoringCriterion.closerToPlayerCluster: 4,
-      ScoringCriterion.closerToNeutralCluster: 3,
-      ScoringCriterion.escapeRange: 6,
+      ScoringCriterion.closerToNeutralCluster:
+          10, // Increased for aggressive expansion
+      ScoringCriterion.escapeRange: 3,
       ScoringCriterion.onHiveTile: -5,
+      ScoringCriterion.encirclementRisk:
+          -10, // Modular: avoid being surrounded (all AI units)
+      ScoringCriterion.largeNeutralCluster:
+          15, // Sweeper-specific: prioritize large neutral clusters
     },
     'Terminator 1.0': {
       ScoringCriterion.targetableByPlayer: -2,
@@ -46,7 +54,8 @@ class AIScoringConfig {
       ScoringCriterion.nextToNeuron: 3,
       ScoringCriterion.nextToNeutralMemory: 3,
       ScoringCriterion.nextToPlayerMemory: 2,
-      ScoringCriterion.onPlayerTile: 0, // AI cannot move to player tiles
+      ScoringCriterion.onPlayerTile:
+          2, // Re-enabled: AI can now recapture player territory
       ScoringCriterion.onNeutralAdjacentToNeutral: 1,
       ScoringCriterion.closerToPlayerUnit: 3,
       ScoringCriterion.closerToNeutralMemory: 2,
@@ -55,6 +64,10 @@ class AIScoringConfig {
       ScoringCriterion.closerToNeutralCluster: 0,
       ScoringCriterion.escapeRange: 6,
       ScoringCriterion.onHiveTile: 0,
+      ScoringCriterion.encirclementRisk:
+          -10, // Modular: avoid being surrounded (all AI units)
+      ScoringCriterion.largeNeutralCluster:
+          0, // Not a priority for aggressive Terminators
     },
   };
 
