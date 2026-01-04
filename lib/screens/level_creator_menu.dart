@@ -28,7 +28,19 @@ class _LevelCreatorMenuState extends State<LevelCreatorMenu> {
     setState(() {
       _levels = levels;
       _isLoading = false;
-      if (levels.isNotEmpty) _selectedLevel = levels.first;
+
+      // Try to keep selection if it still exists
+      if (_selectedLevel != null) {
+        final exists = levels.any((l) => l.id == _selectedLevel!.id);
+        if (!exists) {
+          _selectedLevel = levels.isNotEmpty ? levels.first : null;
+        } else {
+          // Update the selected level reference (in case name changed)
+          _selectedLevel = levels.firstWhere((l) => l.id == _selectedLevel!.id);
+        }
+      } else if (levels.isNotEmpty) {
+        _selectedLevel = levels.first;
+      }
     });
   }
 
@@ -39,18 +51,55 @@ class _LevelCreatorMenuState extends State<LevelCreatorMenu> {
     );
 
     if (result != null) {
+      // Save it immediately so it persists even if the user doesn't hit save in editor
+      await _repository.saveLevel(result);
+
       // Navigate to editor with new level
       if (mounted) {
-        Navigator.of(context).pushNamed('/levelEditor', arguments: result);
+        await Navigator.of(
+          context,
+        ).pushNamed('/levelEditor', arguments: result);
+        _loadLevels(); // Refresh when coming back
       }
     }
   }
 
-  void _editLevel() {
+  void _editLevel() async {
     if (_selectedLevel != null) {
-      Navigator.of(
+      await Navigator.of(
         context,
       ).pushNamed('/levelEditor', arguments: _selectedLevel);
+      _loadLevels(); // Refresh when coming back
+    }
+  }
+
+  void _deleteLevel() async {
+    if (_selectedLevel == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Level'),
+        content: Text(
+          'Are you sure you want to delete "${_selectedLevel!.name}"?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      await _repository.deleteLevel(_selectedLevel!.id);
+      _loadLevels();
     }
   }
 
@@ -114,6 +163,28 @@ class _LevelCreatorMenuState extends State<LevelCreatorMenu> {
                     ElevatedButton(
                       onPressed: _selectedLevel != null ? _editLevel : null,
                       child: const Text('Edit Selected Level'),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Delete Button (only for custom levels)
+                    OutlinedButton(
+                      onPressed:
+                          (_selectedLevel != null &&
+                              _selectedLevel!.category == 'custom')
+                          ? _deleteLevel
+                          : null,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: BorderSide(
+                          color:
+                              (_selectedLevel != null &&
+                                  _selectedLevel!.category == 'custom')
+                              ? Colors.red
+                              : Colors.grey,
+                        ),
+                      ),
+                      child: const Text('Delete Selected Level'),
                     ),
                   ],
                 ),

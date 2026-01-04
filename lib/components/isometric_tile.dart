@@ -3,13 +3,12 @@ import 'package:flame/game.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import '../models/tile_model.dart';
-import '../game.dart';
 import '../utils/grid_utils.dart';
 import 'dart:math' as math;
 import 'tile_control_glow.dart';
 
 class IsometricTile extends PositionComponent
-    with TapCallbacks, HasGameReference<FlameGame> {
+    with TapCallbacks, HoverCallbacks, HasGameReference<FlameGame> {
   final TileModel tileModel;
   final GridUtils gridUtils;
   final Vector2 centeringOffset;
@@ -180,25 +179,21 @@ class IsometricTile extends PositionComponent
         fillColor = const Color(0xFFBDBDBD);
     }
 
-    // Brighten color if hovered (apply overlay if sprite used)
-    if (_isHovered) {
-      if (useFill) {
-        fillColor = Color.lerp(fillColor, Colors.white, 0.3)!;
-      } else {
-        // Draw overlay for interaction
-        final hoverPaint = Paint()
-          ..color = Colors.white.withValues(alpha: 0.3)
-          ..style = PaintingStyle.fill;
-        canvas.drawPath(path, hoverPaint);
-      }
-    }
-
     // Draw the tile fill if needed
     if (useFill) {
       final paint = Paint()
         ..color = fillColor
         ..style = PaintingStyle.fill;
       canvas.drawPath(path, paint);
+    }
+
+    // Yellow hover effect (30% opacity light yellow cover)
+    // MUST be drawn AFTER the fill so it appears on top
+    if (_isHovered) {
+      final hoverPaint = Paint()
+        ..color = Colors.yellow.withValues(alpha: 0.3)
+        ..style = PaintingStyle.fill;
+      canvas.drawPath(path, hoverPaint);
     }
 
     // Draw alliance overlay (Sprite-based for Dendrite, Color-based for others)
@@ -248,6 +243,16 @@ class IsometricTile extends PositionComponent
     canvas.restore();
   }
 
+  @override
+  void onHoverEnter() {
+    _isHovered = true;
+  }
+
+  @override
+  void onHoverExit() {
+    _isHovered = false;
+  }
+
   void setHovered(bool isHovered) {
     _isHovered = isHovered;
   }
@@ -281,9 +286,11 @@ class IsometricTile extends PositionComponent
 
   @override
   void onTapDown(TapDownEvent event) {
-    final game = findParent<MyGame>();
-    if (game != null) {
-      game.handleTileTap(tileModel);
+    // Dynamically call handleTileTap if it exists on the game
+    try {
+      (game as dynamic).handleTileTap(tileModel);
+    } catch (e) {
+      // Fallback or ignore if not implemented
     }
   }
 }

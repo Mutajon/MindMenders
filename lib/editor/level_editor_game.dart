@@ -1,4 +1,6 @@
 import 'package:flame/game.dart';
+import 'package:flame/events.dart';
+import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
 import '../models/level_model.dart';
 import '../models/tile_definition.dart';
@@ -6,10 +8,54 @@ import '../models/tile_model.dart';
 import '../components/isometric_tile.dart';
 import '../utils/grid_utils.dart';
 
-class LevelEditorGame extends FlameGame {
+class LevelEditorGame extends Forge2DGame
+    with MouseMovementDetector, KeyboardEvents {
   final LevelModel level;
   late GridUtils gridUtils;
   List<List<TileDefinition>> tileGrid = [];
+
+  @override
+  void onMouseMove(PointerHoverInfo info) {
+    handleMouseMove(info.eventPosition.widget);
+  }
+
+  // Brush state
+  String currentBrushType = 'Dendrite';
+  bool isBrushActive = false;
+
+  // Track last hovered tile to reduce debug spam
+  IsometricTile? _lastHoveredTile;
+
+  void handleMouseMove(Vector2 position) {
+    // In the level editor, we use the position directly as it's already in game world space
+    // camera.globalToLocal() doesn't work correctly here because the camera viewport
+    // isn't set up the same way as in the main game
+
+    IsometricTile? currentlyHovered;
+
+    for (final component in children.whereType<IsometricTile>()) {
+      final isHovered = component.containsPoint(position);
+      component.setHovered(isHovered);
+      if (isHovered) {
+        currentlyHovered = component;
+      }
+    }
+
+    // Only log when hover changes
+    if (currentlyHovered != _lastHoveredTile) {
+      _lastHoveredTile = currentlyHovered;
+    }
+  }
+
+  void handleTapAt(Vector2 position) {
+    // Use position directly (already in world space for our purposes)
+    for (final component in children.whereType<IsometricTile>()) {
+      if (component.containsPoint(position)) {
+        handleTileTap(component.tileModel);
+        break;
+      }
+    }
+  }
 
   LevelEditorGame({required this.level});
 
@@ -37,6 +83,9 @@ class LevelEditorGame extends FlameGame {
   }
 
   void _buildGrid() {
+    // Clear existing tiles if any
+    children.whereType<IsometricTile>().forEach((t) => t.removeFromParent());
+
     // Calculate centering offset based on current screen size
     final offset = gridUtils.getCenteringOffset(size, level.gridSize);
 
@@ -69,8 +118,24 @@ class LevelEditorGame extends FlameGame {
     );
   }
 
+  void handleTileTap(TileModel tileModel) {
+    if (!isBrushActive) {
+      return;
+    }
+
+    // Change tile type in grid
+    tileGrid[tileModel.y][tileModel.x] = TileDefinition(
+      x: tileModel.x,
+      y: tileModel.y,
+      type: currentBrushType,
+    );
+
+    // Refresh visual (simple re-build for now, can optimize later if needed)
+    _buildGrid();
+  }
+
   LevelModel getUpdatedLevel() {
-    return LevelModel(
+    final updatedLevel = LevelModel(
       id: level.id,
       name: level.name,
       category: level.category,
@@ -83,5 +148,7 @@ class LevelEditorGame extends FlameGame {
       enemyControlledPercentage: level.enemyControlledPercentage,
       tileGrid: tileGrid,
     );
+
+    return updatedLevel;
   }
 }
