@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../models/unit_model.dart';
 import '../models/tile_model.dart';
 import '../game.dart';
+import '../editor/level_editor_game.dart';
 
 class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
   final UnitModel unitModel;
@@ -52,22 +53,34 @@ class UnitComponent extends PositionComponent with TapCallbacks, HasPaint {
   @override
   void onLoad() {
     super.onLoad();
-    // Position from tile - MyGame is the source of truth
-    final game = findParent<MyGame>();
-    if (game != null) {
-      final pos = game.getTilePosition(unitModel.x, unitModel.y);
+
+    // Position from tile - Try MyGame first, then LevelEditorGame
+    final myGame = findParent<MyGame>();
+    if (myGame != null) {
+      final pos = myGame.getTilePosition(unitModel.x, unitModel.y);
       if (pos != null) {
         position = pos;
       }
 
       // Initialize Health Bar (Add to Game for global Z-ordering)
       _healthBarComponent = HealthBarComponent(unitModel: unitModel);
-      game.add(_healthBarComponent!);
+      myGame.add(_healthBarComponent!);
 
       // Load animation if this is the Manipulator
       if (unitModel.name.toLowerCase() == 'manipulator') {
-        _loadAnimation(game);
+        _loadAnimation(myGame);
       }
+      return;
+    }
+
+    // Try LevelEditorGame (for editor mode)
+    final editorGame = findParent<LevelEditorGame>();
+    if (editorGame != null) {
+      final pos = editorGame.getTilePosition(unitModel.x, unitModel.y);
+      if (pos != null) {
+        position = pos;
+      }
+      // Skip health bar and animations in editor
     }
   }
 

@@ -132,6 +132,13 @@ class LevelEditorGame extends Forge2DGame
     );
   }
 
+  // Provide tile position for units (same as MyGame)
+  Vector2? getTilePosition(int x, int y) {
+    final offset = gridUtils.getCenteringOffset(size, level.gridSize);
+    final screenPos = gridUtils.gridToScreen(x, y);
+    return screenPos + offset;
+  }
+
   void handleTileTap(TileModel tileModel) {
     print(
       '🔧 handleTileTap called: tile=(${tileModel.x}, ${tileModel.y}), brushActive=$isBrushActive, mode=$currentBrushMode, option=$currentBrushOption',
