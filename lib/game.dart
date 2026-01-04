@@ -56,6 +56,8 @@ class MyGame extends Forge2DGame
   // Tile lookup map for efficient coordinate-based access
   final Map<String, IsometricTile> _tileComponents = {};
 
+  final LevelModel? level;
+
   // Get tile component at grid coordinates
   IsometricTile? getTileAt(int x, int y) => _tileComponents['$x,$y'];
 
@@ -82,6 +84,7 @@ class MyGame extends Forge2DGame
   List<CardModel> discardPile = [];
 
   MyGame({
+    this.level,
     this.onTileHoverChange,
     this.onUnitHoverChange,
     this.onDeckHoverChange,
@@ -889,8 +892,8 @@ class MyGame extends Forge2DGame
     // Add movement border component - REMOVED (Handled dynamically)
     // add(_movementBorder);
 
-    // Load Test Level
-    final level = LevelDatabase.getLevel('test_level');
+    // Load Level
+    final levelToLoad = level ?? LevelDatabase.getLevel('test_level');
 
     // Initial Control Calculation
 
@@ -920,13 +923,13 @@ class MyGame extends Forge2DGame
     // Initialize GridUtils and grid data
     gridUtils = GridUtils(tileWidth: 64.0, tileHeight: 32.0);
     gridData = GridData(
-      gridSize: level.gridSize,
-      neuronCount: level.neuronTilesCount,
-      brainDamageCount: level.brainDamageTilesCount,
-      memoryCount: level.memoryTilesCount,
-      neuronCoordinates: level.neuronCoordinates,
-      brainDamageCoordinates: level.brainDamageCoordinates,
-      memoryCoordinates: level.memoryCoordinates,
+      gridSize: levelToLoad.gridSize,
+      neuronCount: levelToLoad.neuronTilesCount,
+      brainDamageCount: levelToLoad.brainDamageTilesCount,
+      memoryCount: levelToLoad.memoryTilesCount,
+      neuronCoordinates: levelToLoad.neuronCoordinates,
+      brainDamageCoordinates: levelToLoad.brainDamageCoordinates,
+      memoryCoordinates: levelToLoad.memoryCoordinates,
     );
 
     // Initialize AI controller
@@ -970,11 +973,12 @@ class MyGame extends Forge2DGame
     }
 
     final enemyTileCount =
-        (controllableTiles.length * (level.enemyControlledPercentage / 100.0))
+        (controllableTiles.length *
+                (levelToLoad.enemyControlledPercentage / 100.0))
             .round();
 
     // Sort controllableTiles based on strategy
-    switch (level.enemyControlledTilesStartingPosition.toLowerCase()) {
+    switch (levelToLoad.enemyControlledTilesStartingPosition.toLowerCase()) {
       case 'top':
         // (0,0) is top. Sort by sum of coordinates (x+y) ascending.
         controllableTiles.sort((a, b) => (a.x + a.y).compareTo(b.x + b.y));

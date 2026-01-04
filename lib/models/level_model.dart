@@ -86,17 +86,19 @@ class LevelModel {
 
   factory LevelModel.fromJson(Map<String, dynamic> json) {
     return LevelModel(
-      id: json['id'],
-      name: json['name'],
-      category: json['category'],
-      gridSize: json['gridSize'],
-      neuronTilesCount: json['neuronTilesCount'],
-      brainDamageTilesCount: json['brainDamageTilesCount'],
-      memoryTilesCount: json['memoryTilesCount'],
-      startingEnemiesCount: json['startingEnemiesCount'],
-      startingEnemyTypes: List<String>.from(json['startingEnemyTypes']),
-      enemyControlledPercentage: (json['enemyControlledPercentage'] as num)
-          .toDouble(),
+      id: json['id'] ?? 'unknown_${DateTime.now().millisecondsSinceEpoch}',
+      name: json['name'] ?? 'Unnamed Level',
+      category: json['category'] ?? 'custom',
+      gridSize: json['gridSize'] ?? 10,
+      neuronTilesCount: json['neuronTilesCount'] ?? 0,
+      brainDamageTilesCount: json['brainDamageTilesCount'] ?? 0,
+      memoryTilesCount: json['memoryTilesCount'] ?? 0,
+      startingEnemiesCount: json['startingEnemiesCount'] ?? 0,
+      startingEnemyTypes: json['startingEnemyTypes'] != null
+          ? List<String>.from(json['startingEnemyTypes'])
+          : [],
+      enemyControlledPercentage:
+          (json['enemyControlledPercentage'] as num?)?.toDouble() ?? 0.0,
       enemyControlledTilesStartingPosition:
           json['enemyControlledTilesStartingPosition'] ?? 'top',
       tileGrid: json['tileGrid'] != null

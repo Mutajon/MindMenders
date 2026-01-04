@@ -1,0 +1,17 @@
+#!/bin/bash
+# Start flutter web server on a fixed port and open Chrome separately with persistent profile
+echo "Starting Flutter web server on http://localhost:8080..."
+flutter run -d web-server --web-port=8080 &
+SERVER_PID=$!
+
+# Wait for server to start
+echo "Waiting for server to start..."
+sleep 3
+
+# Open Chrome with persistent profile
+echo "Opening Chrome with persistent profile..."
+open -a "Google Chrome" --args --user-data-dir="$HOME/.flutter_chrome_dev_profile" "http://localhost:8080"
+
+# Keep the server running
+echo "Server running. Press Ctrl+C to stop."
+wait $SERVER_PID

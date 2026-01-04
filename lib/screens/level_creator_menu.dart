@@ -25,6 +25,7 @@ class _LevelCreatorMenuState extends State<LevelCreatorMenu> {
   Future<void> _loadLevels() async {
     setState(() => _isLoading = true);
     final levels = await _repository.getAllLevels();
+
     setState(() {
       _levels = levels;
       _isLoading = false;
@@ -42,6 +43,12 @@ class _LevelCreatorMenuState extends State<LevelCreatorMenu> {
         _selectedLevel = levels.first;
       }
     });
+  }
+
+  void _playLevel() {
+    if (_selectedLevel != null) {
+      Navigator.of(context).pushNamed('/game', arguments: _selectedLevel);
+    }
   }
 
   void _createNewLevel() async {
@@ -123,6 +130,8 @@ class _LevelCreatorMenuState extends State<LevelCreatorMenu> {
                       label: const Text('Create New Level'),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.all(16),
+                        backgroundColor: Colors.blue[700],
+                        foregroundColor: Colors.white,
                       ),
                     ),
 
@@ -132,7 +141,7 @@ class _LevelCreatorMenuState extends State<LevelCreatorMenu> {
 
                     // Existing Levels Section
                     const Text(
-                      'Edit Existing Level',
+                      'Select Level',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -145,10 +154,13 @@ class _LevelCreatorMenuState extends State<LevelCreatorMenu> {
                       value: _selectedLevel,
                       isExpanded: true,
                       items: _levels.map((level) {
+                        final typeLabel = level.category == 'custom'
+                            ? ' (Custom)'
+                            : ' (Built-in)';
                         return DropdownMenuItem(
                           value: level,
                           child: Text(
-                            '${level.name} (${level.gridSize}x${level.gridSize})',
+                            '${level.name}$typeLabel [${level.gridSize}x${level.gridSize}]',
                           ),
                         );
                       }).toList(),
@@ -159,33 +171,55 @@ class _LevelCreatorMenuState extends State<LevelCreatorMenu> {
 
                     const SizedBox(height: 16),
 
-                    // Edit Button
-                    ElevatedButton(
-                      onPressed: _selectedLevel != null ? _editLevel : null,
-                      child: const Text('Edit Selected Level'),
+                    // Actions Row
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton.icon(
+                            onPressed: _selectedLevel != null
+                                ? _playLevel
+                                : null,
+                            icon: const Icon(Icons.play_arrow),
+                            label: const Text('Play'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green[700],
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _selectedLevel != null
+                                ? _editLevel
+                                : null,
+                            icon: const Icon(Icons.edit),
+                            label: const Text('Edit'),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
 
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 16),
 
                     // Delete Button (only for custom levels)
-                    OutlinedButton(
-                      onPressed:
-                          (_selectedLevel != null &&
-                              _selectedLevel!.category == 'custom')
-                          ? _deleteLevel
-                          : null,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: BorderSide(
-                          color:
-                              (_selectedLevel != null &&
-                                  _selectedLevel!.category == 'custom')
-                              ? Colors.red
-                              : Colors.grey,
+                    if (_selectedLevel != null &&
+                        _selectedLevel!.category == 'custom')
+                      OutlinedButton.icon(
+                        onPressed: _deleteLevel,
+                        icon: const Icon(Icons.delete),
+                        label: const Text('Delete Custom Level'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                          padding: const EdgeInsets.all(12),
                         ),
                       ),
-                      child: const Text('Delete Selected Level'),
-                    ),
                   ],
                 ),
               ),

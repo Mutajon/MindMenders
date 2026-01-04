@@ -146,6 +146,12 @@ class LevelEditorGame extends Forge2DGame
       startingEnemiesCount: level.startingEnemiesCount,
       startingEnemyTypes: level.startingEnemyTypes,
       enemyControlledPercentage: level.enemyControlledPercentage,
+      enemyControlledTilesStartingPosition:
+          level.enemyControlledTilesStartingPosition,
+      neuronCoordinates: level.neuronCoordinates,
+      brainDamageCoordinates: level.brainDamageCoordinates,
+      memoryCoordinates: level.memoryCoordinates,
+      startingEnemyCoordinates: level.startingEnemyCoordinates,
       tileGrid: tileGrid,
     );
 

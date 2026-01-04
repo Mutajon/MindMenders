@@ -30,7 +30,6 @@ class MyApp extends StatelessWidget {
       initialRoute: '/',
       routes: {
         '/': (context) => const MainMenu(),
-        '/game': (context) => const GameScreen(),
         '/levelCreator': (context) => const LevelCreatorMenu(),
       },
       onGenerateRoute: (settings) {
@@ -38,6 +37,11 @@ class MyApp extends StatelessWidget {
           final level = settings.arguments as LevelModel;
           return MaterialPageRoute(
             builder: (context) => LevelEditorScreen(level: level),
+          );
+        } else if (settings.name == '/game') {
+          final level = settings.arguments as LevelModel?;
+          return MaterialPageRoute(
+            builder: (context) => GameScreen(level: level),
           );
         }
         return null;
@@ -47,7 +51,8 @@ class MyApp extends StatelessWidget {
 }
 
 class GameScreen extends StatefulWidget {
-  const GameScreen({super.key});
+  final LevelModel? level;
+  const GameScreen({super.key, this.level});
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -72,6 +77,7 @@ class _GameScreenState extends State<GameScreen> {
   void initState() {
     super.initState();
     game = MyGame(
+      level: widget.level,
       onTileHoverChange: (tile) {
         setState(() {
           hoveredTile = tile;
