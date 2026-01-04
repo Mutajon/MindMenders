@@ -6,6 +6,8 @@ import '../models/level_model.dart';
 import '../models/tile_definition.dart';
 import '../models/tile_model.dart';
 import '../components/isometric_tile.dart';
+import '../components/unit_component.dart';
+import '../data/unit_database.dart';
 import '../utils/grid_utils.dart';
 
 class LevelEditorGame extends Forge2DGame
@@ -84,8 +86,9 @@ class LevelEditorGame extends Forge2DGame
   }
 
   void _buildGrid() {
-    // Clear existing tiles if any
+    // Clear existing tiles and units
     children.whereType<IsometricTile>().forEach((t) => t.removeFromParent());
+    children.whereType<UnitComponent>().forEach((u) => u.removeFromParent());
 
     // Calculate centering offset based on current screen size
     final offset = gridUtils.getCenteringOffset(size, level.gridSize);
@@ -101,6 +104,16 @@ class LevelEditorGame extends Forge2DGame
           centeringOffset: offset,
         );
         add(tile);
+
+        // Create unit component if this tile has a unit
+        if (tileDef.unitName != null && tileDef.unitName!.isNotEmpty) {
+          try {
+            final unit = UnitDatabase.create(tileDef.unitName!, x, y);
+            add(UnitComponent(unitModel: unit));
+          } catch (e) {
+            print('Failed to create unit ${tileDef.unitName} for editor: $e');
+          }
+        }
       }
     }
   }
