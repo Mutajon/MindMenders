@@ -17,9 +17,10 @@ class GridData {
   }
 
   void _initializeGrid() {
+    // Create tiles indexed as tiles[x][y] to match the rest of the codebase
     tiles = List.generate(
       gridSize,
-      (y) => List.generate(gridSize, (x) {
+      (x) => List.generate(gridSize, (y) {
         final tileDef = tileGrid[y][x];
 
         // Store unit placement for later spawning
