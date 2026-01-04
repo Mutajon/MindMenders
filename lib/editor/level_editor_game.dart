@@ -120,16 +120,25 @@ class LevelEditorGame extends Forge2DGame
   }
 
   void handleTileTap(TileModel tileModel) {
+    print(
+      '🔧 handleTileTap called: tile=(${tileModel.x}, ${tileModel.y}), brushActive=$isBrushActive, mode=$currentBrushMode, option=$currentBrushOption',
+    );
+
     if (!isBrushActive) {
+      print('🔧 Brush not active, ignoring tap');
       return;
     }
 
     final currentTile = tileGrid[tileModel.y][tileModel.x];
+    print(
+      '🔧 Current tile: ${currentTile.type}, alliance=${currentTile.alliance}, unit=${currentTile.unitName}',
+    );
 
     // Apply brush based on current mode
     switch (currentBrushMode) {
       case 'tile':
         // Change tile type
+        print('🔧 Changing tile type to $currentBrushOption');
         tileGrid[tileModel.y][tileModel.x] = TileDefinition(
           x: tileModel.x,
           y: tileModel.y,
@@ -142,6 +151,7 @@ class LevelEditorGame extends Forge2DGame
       case 'control':
         // Change tile alliance/control
         String alliance = currentBrushOption; // 'Hive', 'Menders', 'Neutral'
+        print('🔧 Changing tile control to $alliance');
         tileGrid[tileModel.y][tileModel.x] = TileDefinition(
           x: tileModel.x,
           y: tileModel.y,
@@ -154,6 +164,7 @@ class LevelEditorGame extends Forge2DGame
       case 'enemy':
       case 'mender':
         // Place unit (replaces existing unit if any)
+        print('🔧 Placing unit $currentBrushOption');
         tileGrid[tileModel.y][tileModel.x] = TileDefinition(
           x: tileModel.x,
           y: tileModel.y,
@@ -164,6 +175,7 @@ class LevelEditorGame extends Forge2DGame
         break;
     }
 
+    print('🔧 Refreshing grid...');
     // Refresh visual
     _buildGrid();
   }

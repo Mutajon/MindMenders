@@ -33,6 +33,9 @@ class _LevelEditorScreenState extends State<LevelEditorScreen> {
   void initState() {
     super.initState();
     _game = LevelEditorGame(level: widget.level);
+    // Initialize brush state in game
+    _game.currentBrushMode = _currentBrushMode;
+    _game.currentBrushOption = _currentBrushOption;
   }
 
   void _onBrushModeChanged(String? mode) {
