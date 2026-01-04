@@ -10,10 +10,9 @@ class DeckComponent extends PositionComponent with HoverCallbacks, HasGameRef<My
   bool _isHovered = false;
   
   DeckComponent({
-    Vector2? position,
+    super.position,
     this.type = DeckType.draw,
   }) : super(
-    position: position,
     size: Vector2(60, 90),
     anchor: Anchor.bottomRight,
   );

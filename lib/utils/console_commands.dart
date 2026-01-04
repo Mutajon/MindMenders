@@ -1,5 +1,5 @@
 @JS()
-library console_commands;
+library;
 
 import 'package:js/js.dart';
 

@@ -21,6 +21,13 @@ class MainMenu extends StatelessWidget {
               },
               child: const Text('Start'),
             ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pushNamed('/levelCreator');
+              },
+              child: const Text('Level Creator'),
+            ),
           ],
         ),
       ),

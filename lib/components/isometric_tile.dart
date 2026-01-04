@@ -1,4 +1,5 @@
 import 'package:flame/components.dart';
+import 'package:flame/game.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import '../models/tile_model.dart';
@@ -8,7 +9,7 @@ import 'dart:math' as math;
 import 'tile_control_glow.dart';
 
 class IsometricTile extends PositionComponent
-    with TapCallbacks, HasGameReference<MyGame> {
+    with TapCallbacks, HasGameReference<FlameGame> {
   final TileModel tileModel;
   final GridUtils gridUtils;
   final Vector2 centeringOffset;

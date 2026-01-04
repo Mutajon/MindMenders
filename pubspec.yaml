@@ -38,6 +38,7 @@ dependencies:
   flame_forge2d: ^0.19.2+2
   flame_audio: ^2.1.0
   web: ^1.0.0
+  shared_preferences: ^2.5.4
 
 dev_dependencies:
   flutter_test:
