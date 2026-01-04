@@ -18,12 +18,72 @@ class _LevelEditorScreenState extends State<LevelEditorScreen> {
   late LevelEditorGame _game;
   final LevelRepository _repository = LevelRepository();
   bool _isBrushActive = false;
-  String _currentBrushType = 'Dendrite';
+  String _currentBrushMode = 'tile';
+  String _currentBrushOption = 'Dendrite';
+
+  // Define available options for each brush mode
+  final Map<String, List<String>> _brushOptions = {
+    'tile': ['Dendrite', 'Neuron', 'Memory', 'Brain Damage'],
+    'control': ['Neutral', 'Hive', 'Menders'],
+    'enemy': ['Terminator 1.0', 'Sweeper 1.0'],
+    'mender': ['Manipulator', 'Crazy Nina'],
+  };
 
   @override
   void initState() {
     super.initState();
     _game = LevelEditorGame(level: widget.level);
+  }
+
+  void _onBrushModeChanged(String? mode) {
+    if (mode != null) {
+      setState(() {
+        _currentBrushMode = mode;
+        // Set first option of the new mode
+        _currentBrushOption = _brushOptions[mode]!.first;
+        _game.currentBrushMode = mode;
+        _game.currentBrushOption = _currentBrushOption;
+      });
+    }
+  }
+
+  void _onBrushOptionChanged(String? option) {
+    if (option != null) {
+      setState(() {
+        _currentBrushOption = option;
+        _game.currentBrushOption = option;
+      });
+    }
+  }
+
+  String _getBrushModeLabel(String mode) {
+    switch (mode) {
+      case 'tile':
+        return 'Tile Type';
+      case 'control':
+        return 'Control';
+      case 'enemy':
+        return 'Enemy Unit';
+      case 'mender':
+        return 'Mender Unit';
+      default:
+        return mode;
+    }
+  }
+
+  Color _getBrushModeColor(String mode) {
+    switch (mode) {
+      case 'tile':
+        return Colors.green;
+      case 'control':
+        return Colors.blue;
+      case 'enemy':
+        return Colors.red;
+      case 'mender':
+        return Colors.cyan;
+      default:
+        return Colors.white;
+    }
   }
 
   Future<void> _saveLevel({bool exit = false}) async {
@@ -80,53 +140,111 @@ class _LevelEditorScreenState extends State<LevelEditorScreen> {
             child: Center(
               child: Card(
                 elevation: 4,
-                color: Colors.black.withValues(alpha: 0.7),
+                color: Colors.black.withValues(alpha: 0.8),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
-                    vertical: 8,
+                    vertical: 12,
                   ),
-                  child: Row(
+                  child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Brush Toggle Button
-                      IconButton(
-                        onPressed: () {
-                          setState(() {
-                            _isBrushActive = !_isBrushActive;
-                            _game.isBrushActive = _isBrushActive;
-                          });
-                        },
-                        icon: Icon(
-                          Icons.brush,
-                          color: _isBrushActive ? Colors.blue : Colors.white,
-                        ),
-                        tooltip: 'Tile Brush',
-                      ),
-                      const SizedBox(width: 8),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Brush Toggle Button
+                          IconButton(
+                            onPressed: () {
+                              setState(() {
+                                _isBrushActive = !_isBrushActive;
+                                _game.isBrushActive = _isBrushActive;
+                              });
+                            },
+                            icon: Icon(
+                              Icons.brush,
+                              color: _isBrushActive
+                                  ? _getBrushModeColor(_currentBrushMode)
+                                  : Colors.white,
+                              size: 28,
+                            ),
+                            tooltip:
+                                'Toggle Brush (${_isBrushActive ? "ON" : "OFF"})',
+                          ),
+                          const SizedBox(width: 16),
 
-                      // Tile Type Dropdown
-                      DropdownButton<String>(
-                        value: _currentBrushType,
-                        dropdownColor: Colors.grey[900],
-                        style: const TextStyle(color: Colors.white),
-                        underline: Container(),
-                        items: ['Dendrite', 'Neuron', 'Memory', 'Brain Damage']
-                            .map(
-                              (type) => DropdownMenuItem(
-                                value: type,
-                                child: Text(type),
+                          // Brush Mode Selector
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Brush Mode',
+                                style: TextStyle(
+                                  color: Colors.grey[400],
+                                  fontSize: 10,
+                                ),
                               ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() {
-                              _currentBrushType = value;
-                              _game.currentBrushType = value;
-                            });
-                          }
-                        },
+                              DropdownButton<String>(
+                                value: _currentBrushMode,
+                                dropdownColor: Colors.grey[900],
+                                style: TextStyle(
+                                  color: _getBrushModeColor(_currentBrushMode),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                underline: Container(),
+                                items: _brushOptions.keys.map((mode) {
+                                  return DropdownMenuItem(
+                                    value: mode,
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          _getBrushModeIcon(mode),
+                                          color: _getBrushModeColor(mode),
+                                          size: 16,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(_getBrushModeLabel(mode)),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: _onBrushModeChanged,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 24),
+
+                          // Brush Option Selector
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Option',
+                                style: TextStyle(
+                                  color: Colors.grey[400],
+                                  fontSize: 10,
+                                ),
+                              ),
+                              DropdownButton<String>(
+                                value: _currentBrushOption,
+                                dropdownColor: Colors.grey[900],
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                underline: Container(),
+                                items: _brushOptions[_currentBrushMode]!.map((
+                                  option,
+                                ) {
+                                  return DropdownMenuItem(
+                                    value: option,
+                                    child: Text(option),
+                                  );
+                                }).toList(),
+                                onChanged: _onBrushOptionChanged,
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -163,5 +281,20 @@ class _LevelEditorScreenState extends State<LevelEditorScreen> {
         ],
       ),
     );
+  }
+
+  IconData _getBrushModeIcon(String mode) {
+    switch (mode) {
+      case 'tile':
+        return Icons.grid_on;
+      case 'control':
+        return Icons.flag;
+      case 'enemy':
+        return Icons.bug_report;
+      case 'mender':
+        return Icons.healing;
+      default:
+        return Icons.brush;
+    }
   }
 }

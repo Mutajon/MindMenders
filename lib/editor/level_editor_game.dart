@@ -19,8 +19,9 @@ class LevelEditorGame extends Forge2DGame
     handleMouseMove(info.eventPosition.widget);
   }
 
-  // Brush state
-  String currentBrushType = 'Dendrite';
+  // Brush state - expanded to support different brush modes
+  String currentBrushMode = 'tile'; // 'tile', 'control', 'enemy', 'mender'
+  String currentBrushOption = 'Dendrite'; // Changes based on mode
   bool isBrushActive = false;
 
   // Track last hovered tile to reduce debug spam
@@ -123,14 +124,47 @@ class LevelEditorGame extends Forge2DGame
       return;
     }
 
-    // Change tile type in grid
-    tileGrid[tileModel.y][tileModel.x] = TileDefinition(
-      x: tileModel.x,
-      y: tileModel.y,
-      type: currentBrushType,
-    );
+    final currentTile = tileGrid[tileModel.y][tileModel.x];
 
-    // Refresh visual (simple re-build for now, can optimize later if needed)
+    // Apply brush based on current mode
+    switch (currentBrushMode) {
+      case 'tile':
+        // Change tile type
+        tileGrid[tileModel.y][tileModel.x] = TileDefinition(
+          x: tileModel.x,
+          y: tileModel.y,
+          type: currentBrushOption,
+          alliance: currentTile.alliance,
+          unitName: currentTile.unitName,
+        );
+        break;
+
+      case 'control':
+        // Change tile alliance/control
+        String alliance = currentBrushOption; // 'Hive', 'Menders', 'Neutral'
+        tileGrid[tileModel.y][tileModel.x] = TileDefinition(
+          x: tileModel.x,
+          y: tileModel.y,
+          type: currentTile.type,
+          alliance: alliance,
+          unitName: currentTile.unitName,
+        );
+        break;
+
+      case 'enemy':
+      case 'mender':
+        // Place unit (replaces existing unit if any)
+        tileGrid[tileModel.y][tileModel.x] = TileDefinition(
+          x: tileModel.x,
+          y: tileModel.y,
+          type: currentTile.type,
+          alliance: currentTile.alliance,
+          unitName: currentBrushOption,
+        );
+        break;
+    }
+
+    // Refresh visual
     _buildGrid();
   }
 

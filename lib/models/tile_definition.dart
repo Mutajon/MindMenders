@@ -3,12 +3,14 @@ class TileDefinition {
   final int y;
   final String type;
   final String? alliance; // Optional, for pre-set alliances
+  final String? unitName; // Optional, for placing units in the editor
 
   const TileDefinition({
     required this.x,
     required this.y,
     required this.type,
     this.alliance,
+    this.unitName,
   });
 
   Map<String, dynamic> toJson() {
@@ -17,6 +19,7 @@ class TileDefinition {
       'y': y,
       'type': type,
       if (alliance != null) 'alliance': alliance,
+      if (unitName != null) 'unitName': unitName,
     };
   }
 
@@ -26,6 +29,7 @@ class TileDefinition {
       y: json['y'],
       type: json['type'],
       alliance: json['alliance'],
+      unitName: json['unitName'],
     );
   }
 }
