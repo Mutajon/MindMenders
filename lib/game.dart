@@ -922,14 +922,17 @@ class MyGame extends Forge2DGame
 
     // Initialize GridUtils and grid data
     gridUtils = GridUtils(tileWidth: 64.0, tileHeight: 32.0);
+
+    // Use tileGrid from level (all levels must have one now)
+    if (levelToLoad.tileGrid == null || levelToLoad.tileGrid!.isEmpty) {
+      throw Exception(
+        'Level ${levelToLoad.name} has no tileGrid! Please edit it in the level editor.',
+      );
+    }
+
     gridData = GridData(
       gridSize: levelToLoad.gridSize,
-      neuronCount: levelToLoad.neuronTilesCount,
-      brainDamageCount: levelToLoad.brainDamageTilesCount,
-      memoryCount: levelToLoad.memoryTilesCount,
-      neuronCoordinates: levelToLoad.neuronCoordinates,
-      brainDamageCoordinates: levelToLoad.brainDamageCoordinates,
-      memoryCoordinates: levelToLoad.memoryCoordinates,
+      tileGrid: levelToLoad.tileGrid!,
     );
 
     // Initialize AI controller
@@ -961,225 +964,13 @@ class MyGame extends Forge2DGame
       }
     }
 
-    // Apply Enemy Control based on Strategy
-    final controllableTiles = <TileModel>[];
-    for (int x = 0; x < gridData.gridSize; x++) {
-      for (int y = 0; y < gridData.gridSize; y++) {
-        final tile = gridData.getTileAt(x, y);
-        if (tile != null && tile.controllable) {
-          controllableTiles.add(tile);
-        }
-      }
-    }
+    // Tile control now comes from tileGrid alliance data
+    // (set in the level editor)
 
-    final enemyTileCount =
-        (controllableTiles.length *
-                (levelToLoad.enemyControlledPercentage / 100.0))
-            .round();
+    // Spawn units from tileGrid
+    await _spawnUnitsFromTileGrid();
 
-    // Sort controllableTiles based on strategy
-    switch (levelToLoad.enemyControlledTilesStartingPosition.toLowerCase()) {
-      case 'top':
-        // (0,0) is top. Sort by sum of coordinates (x+y) ascending.
-        controllableTiles.sort((a, b) => (a.x + a.y).compareTo(b.x + b.y));
-        break;
-      case 'bottom':
-        // (Max,Max) is bottom. Sort by sum of coordinates descending.
-        controllableTiles.sort((a, b) => (b.x + b.y).compareTo(a.x + a.y));
-        break;
-      case 'left':
-        // (0, Max) is left. Sort by difference (x-y) ascending.
-        controllableTiles.sort((a, b) => (a.x - a.y).compareTo(b.x - b.y));
-        break;
-      case 'right':
-        // (Max, 0) is right. Sort by difference (x-y) descending.
-        controllableTiles.sort((a, b) => (b.x - b.y).compareTo(a.x - a.y));
-        break;
-      case 'neurons':
-        // Find all neurons
-        final neurons = <TileModel>[];
-        for (int x = 0; x < gridData.gridSize; x++) {
-          for (int y = 0; y < gridData.gridSize; y++) {
-            final t = gridData.getTileAt(x, y);
-            if (t != null && t.type == 'Neuron') neurons.add(t);
-          }
-        }
-        // Sort by min distance to any neuron
-        controllableTiles.sort((a, b) {
-          double minDistA = 999999;
-          for (final n in neurons) {
-            final d = (a.x - n.x) * (a.x - n.x) + (a.y - n.y) * (a.y - n.y);
-            if (d < minDistA) minDistA = d.toDouble();
-          }
-          double minDistB = 999999;
-          for (final n in neurons) {
-            final d = (b.x - n.x) * (b.x - n.x) + (b.y - n.y) * (b.y - n.y);
-            if (d < minDistB) minDistB = d.toDouble();
-          }
-          return minDistA.compareTo(minDistB);
-        });
-        break;
-      case 'memories':
-        // Find all memories
-        final memories = <TileModel>[];
-        for (int x = 0; x < gridData.gridSize; x++) {
-          for (int y = 0; y < gridData.gridSize; y++) {
-            final t = gridData.getTileAt(x, y);
-            if (t != null && t.type == 'Memory') memories.add(t);
-          }
-        }
-        // Sort by min distance to any memory
-        controllableTiles.sort((a, b) {
-          double minDistA = 999999;
-          for (final n in memories) {
-            final d = (a.x - n.x) * (a.x - n.x) + (a.y - n.y) * (a.y - n.y);
-            if (d < minDistA) minDistA = d.toDouble();
-          }
-          double minDistB = 999999;
-          for (final n in memories) {
-            final d = (b.x - n.x) * (b.x - n.x) + (b.y - n.y) * (b.y - n.y);
-            if (d < minDistB) minDistB = d.toDouble();
-          }
-          return minDistA.compareTo(minDistB);
-        });
-        break;
-      default:
-        // Default top
-        controllableTiles.sort((a, b) => (a.x + a.y).compareTo(b.x + b.y));
-    }
-
-    // Take top N
-    for (int i = 0; i < enemyTileCount; i++) {
-      if (i < controllableTiles.length) {
-        tileControlChange(controllableTiles[i], 'Hive');
-      }
-    }
-
-    // Find valid Dendrite tiles for units
-    TileModel? knightSpawn;
-    double minKnightDist = 999.0;
-
-    // Find best spawn for Knight near (5,5)
-    for (int x = 0; x < gridData.gridSize; x++) {
-      for (int y = 0; y < gridData.gridSize; y++) {
-        final tile = gridData.getTileAt(x, y);
-        if (tile != null && tile.type == 'Dendrite') {
-          double d = ((x - 5) * (x - 5) + (y - 5) * (y - 5)).toDouble();
-          if (d < minKnightDist) {
-            minKnightDist = d;
-            knightSpawn = tile;
-          }
-        }
-      }
-    }
-
-    // Find best spawn for Archer near (0,5)
-    TileModel? archerSpawn;
-    double minArcherDist = 999.0;
-
-    for (int x = 0; x < gridData.gridSize; x++) {
-      for (int y = 0; y < gridData.gridSize; y++) {
-        final tile = gridData.getTileAt(x, y);
-        if (tile != null && tile.type == 'Dendrite' && tile != knightSpawn) {
-          double d = ((x - 0) * (x - 0) + (y - 5) * (y - 5)).toDouble();
-          if (d < minArcherDist) {
-            minArcherDist = d;
-            archerSpawn = tile;
-          }
-        }
-      }
-    }
-
-    // Fallback if something went wrong
-    knightSpawn ??=
-        gridData.getTileAt(5, 5) ??
-        TileModel(
-          x: 5,
-          y: 5,
-          type: 'Dendrite',
-          description: 'Fallback',
-          walkable: true,
-        );
-    archerSpawn ??=
-        gridData.getTileAt(0, 5) ??
-        TileModel(
-          x: 0,
-          y: 5,
-          type: 'Dendrite',
-          description: 'Fallback',
-          walkable: true,
-        );
-
-    // Create and add a demo unit at grid center
-    // Track occupied tiles to prevent overlap
-    final occupiedTiles = <TileModel>{};
-
-    // Helper to find random valid tile
-    TileModel? findRandomTile({required bool Function(TileModel) filter}) {
-      final candidates = <TileModel>[];
-      for (var row in gridData.tiles) {
-        for (var tile in row) {
-          if (tile.walkable && !occupiedTiles.contains(tile) && filter(tile)) {
-            candidates.add(tile);
-          }
-        }
-      }
-      if (candidates.isEmpty) return null;
-      return candidates[DateTime.now().microsecondsSinceEpoch %
-          candidates.length];
-    }
-
-    // Spawn Menders (Bottom 4 rows)
-    final menderSpawnFilter = (TileModel t) => t.y >= gridData.gridSize - 4;
-
-    // Manipulator
-    final manipulatorTile = findRandomTile(filter: menderSpawnFilter);
-    if (manipulatorTile != null) {
-      occupiedTiles.add(manipulatorTile);
-      final manipulator = UnitDatabase.create(
-        'Manipulator',
-        manipulatorTile.x,
-        manipulatorTile.y,
-      );
-      await add(UnitComponent(unitModel: manipulator));
-    }
-
-    // Crazy Nina
-    final ninaTile = findRandomTile(filter: menderSpawnFilter);
-    if (ninaTile != null) {
-      occupiedTiles.add(ninaTile);
-      final nina = UnitDatabase.create('Crazy Nina', ninaTile.x, ninaTile.y);
-      await add(UnitComponent(unitModel: nina));
-    }
-
-    // Spawn Hive Units (In Hive Controlled Territory)
-    final hiveSpawnFilter = (TileModel t) => t.alliance == 'Hive';
-
-    // Terminator
-    final terminatorTile = findRandomTile(filter: hiveSpawnFilter);
-    if (terminatorTile != null) {
-      occupiedTiles.add(terminatorTile);
-      final terminator = UnitDatabase.create(
-        'Terminator 1.0',
-        terminatorTile.x,
-        terminatorTile.y,
-      );
-      await add(UnitComponent(unitModel: terminator));
-    }
-
-    // Sweeper
-    final sweeperTile = findRandomTile(filter: hiveSpawnFilter);
-    if (sweeperTile != null) {
-      occupiedTiles.add(sweeperTile);
-      final sweeper = UnitDatabase.create(
-        'Sweeper 1.0',
-        sweeperTile.x,
-        sweeperTile.y,
-      );
-      await add(UnitComponent(unitModel: sweeper));
-    }
-
-    // Initial capture for new units
+    // Initial capture for spawned units
     for (final unit in children.whereType<UnitComponent>()) {
       final tile = gridData.getTileAt(unit.unitModel.x, unit.unitModel.y);
       if (tile != null &&
@@ -2120,6 +1911,24 @@ class MyGame extends Forge2DGame
       isArtillery: isArtillery,
       onHit: onHit,
     );
+  }
+
+  // Spawn units based on tileGrid data
+  Future<void> _spawnUnitsFromTileGrid() async {
+    for (int x = 0; x < gridData.gridSize; x++) {
+      for (int y = 0; y < gridData.gridSize; y++) {
+        final unitName = gridData.getUnitAt(x, y);
+        if (unitName != null && unitName.isNotEmpty) {
+          try {
+            final unit = UnitDatabase.create(unitName, x, y);
+            await add(UnitComponent(unitModel: unit));
+            print('Spawned unit: $unitName at ($x, $y)');
+          } catch (e) {
+            print('Failed to spawn unit $unitName at ($x, $y): $e');
+          }
+        }
+      }
+    }
   }
 
   // Console command: Show master card pool

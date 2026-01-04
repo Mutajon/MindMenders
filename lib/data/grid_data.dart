@@ -1,166 +1,40 @@
-import 'dart:math';
 import '../models/tile_model.dart';
+import '../models/tile_definition.dart';
 import 'tile_database.dart';
 
 class GridData {
   final int gridSize;
   late List<List<TileModel>> tiles;
 
-  final int neuronCount;
-  final int brainDamageCount;
-  final int memoryCount;
+  // Store unit placement data from tileGrid
+  final Map<String, String> unitPlacements = {}; // key: 'x,y', value: unitName
 
-  final List<Point<int>>? neuronCoordinates;
-  final List<Point<int>>? brainDamageCoordinates;
-  final List<Point<int>>? memoryCoordinates;
+  // Pre-defined tile grid from level editor (required)
+  final List<List<TileDefinition>> tileGrid;
 
-  GridData({
-    this.gridSize = 10, 
-    this.neuronCount = 10,
-    this.brainDamageCount = 5,
-    this.memoryCount = 0,
-    this.neuronCoordinates,
-    this.brainDamageCoordinates,
-    this.memoryCoordinates,
-  }) {
+  GridData({required this.gridSize, required this.tileGrid}) {
     _initializeGrid();
   }
 
   void _initializeGrid() {
-    final random = Random();
-    
-    // 1. Initialize all as Dendrite
     tiles = List.generate(
       gridSize,
-      (x) => List.generate(
-        gridSize,
-        (y) => TileDatabase.create('Dendrite', x, y),
-      ),
+      (y) => List.generate(gridSize, (x) {
+        final tileDef = tileGrid[y][x];
+
+        // Store unit placement for later spawning
+        if (tileDef.unitName != null && tileDef.unitName!.isNotEmpty) {
+          unitPlacements['$x,$y'] = tileDef.unitName!;
+        }
+
+        return TileDatabase.create(
+          tileDef.type,
+          x,
+          y,
+          alliance: tileDef.alliance ?? 'Neutral',
+        );
+      }),
     );
-
-    // 2. Place Brain Damage
-    if (brainDamageCoordinates != null && brainDamageCoordinates!.isNotEmpty) {
-      for (final p in brainDamageCoordinates!) {
-        if (p.x >= 0 && p.x < gridSize && p.y >= 0 && p.y < gridSize) {
-          tiles[p.x][p.y] = TileDatabase.create('Brain Damage', p.x, p.y);
-        }
-      }
-    } else {
-      // Random placement
-      int placedBD = 0;
-      int attempts = 0;
-      const maxAttempts = 1000;
-
-      while (placedBD < brainDamageCount && attempts < maxAttempts) {
-        attempts++;
-        // Exclude edges
-        final x = random.nextInt(gridSize - 2) + 1;
-        final y = random.nextInt(gridSize - 2) + 1;
-
-        if (tiles[x][y].type != 'Dendrite') continue;
-
-        tiles[x][y] = TileDatabase.create('Brain Damage', x, y);
-        placedBD++;
-      }
-    }
-    
-    // 3. Place Memory Tiles
-    if (memoryCoordinates != null && memoryCoordinates!.isNotEmpty) {
-      for (final p in memoryCoordinates!) {
-        if (p.x >= 0 && p.x < gridSize && p.y >= 0 && p.y < gridSize) {
-          tiles[p.x][p.y] = TileDatabase.create('Memory', p.x, p.y);
-        }
-      }
-    } else {
-      // Random placement
-      int placedMemory = 0;
-      int attempts = 0;
-      const maxAttempts = 1000;
-
-      while (placedMemory < memoryCount && attempts < maxAttempts) {
-        attempts++;
-        // Exclude edges
-        final x = random.nextInt(gridSize - 2) + 1;
-        final y = random.nextInt(gridSize - 2) + 1;
-
-        if (tiles[x][y].type != 'Dendrite') continue;
-
-        tiles[x][y] = TileDatabase.create('Memory', x, y);
-        placedMemory++;
-      }
-    }
-
-    // 4. Place Neurons
-    if (neuronCoordinates != null && neuronCoordinates!.isNotEmpty) {
-      for (final p in neuronCoordinates!) {
-        if (p.x >= 0 && p.x < gridSize && p.y >= 0 && p.y < gridSize) {
-          // Check for existing type? Assuming coordinates are valid and don't overlap
-          tiles[p.x][p.y] = TileDatabase.create('Neuron', p.x, p.y);
-        }
-      }
-    } else {
-      // Random placement
-      int placedNeurons = 0;
-      int attempts = 0;
-      const maxAttempts = 1000;
-
-      while (placedNeurons < neuronCount && attempts < maxAttempts) {
-        attempts++;
-        // Exclude edges
-        final x = random.nextInt(gridSize - 2) + 1;
-        final y = random.nextInt(gridSize - 2) + 1;
-
-        // Must be Dendrite
-        if (tiles[x][y].type != 'Dendrite') continue;
-
-        // Check neighbors for existing Neurons
-        bool touchingNeuron = false;
-        // Axial hex neighbors (corrected for isometric projection)
-        final neighbors = [
-          [x + 1, y], [x - 1, y],
-          [x, y + 1], [x, y - 1],
-          [x + 1, y + 1], [x - 1, y - 1]
-        ];
-
-        for (final n in neighbors) {
-          final nx = n[0];
-          final ny = n[1];
-          if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize) {
-            if (tiles[nx][ny].type == 'Neuron') {
-              touchingNeuron = true;
-              break;
-            }
-          }
-        }
-
-        if (!touchingNeuron) {
-          tiles[x][y] = TileDatabase.create('Neuron', x, y);
-          placedNeurons++;
-        }
-      }
-    }
-    
-    // Verification
-    for (int x = 0; x < gridSize; x++) {
-      for (int y = 0; y < gridSize; y++) {
-        if (tiles[x][y].type == 'Neuron') {
-          final neighbors = [
-            [x + 1, y], [x - 1, y],
-            [x, y + 1], [x, y - 1],
-            [x + 1, y + 1], [x - 1, y - 1]
-          ];
-          for (final n in neighbors) {
-            final nx = n[0];
-            final ny = n[1];
-            if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize) {
-              if (tiles[nx][ny].type == 'Neuron') {
-                print('WARNING: Touching Neurons detected at ($x,$y) and ($nx,$ny)');
-              }
-            }
-          }
-        }
-      }
-    }
   }
 
   TileModel? getTileAt(int x, int y) {
@@ -168,5 +42,9 @@ class GridData {
       return tiles[x][y];
     }
     return null;
+  }
+
+  String? getUnitAt(int x, int y) {
+    return unitPlacements['$x,$y'];
   }
 }
