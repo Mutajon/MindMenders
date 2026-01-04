@@ -25,8 +25,8 @@ class _LevelEditorScreenState extends State<LevelEditorScreen> {
   final Map<String, List<String>> _brushOptions = {
     'tile': ['Dendrite', 'Neuron', 'Memory', 'Brain Damage'],
     'control': ['Neutral', 'Hive', 'Menders'],
-    'enemy': ['Terminator 1.0', 'Sweeper 1.0'],
-    'mender': ['Manipulator', 'Crazy Nina'],
+    'enemy': ['Eraser', 'Terminator 1.0', 'Sweeper 1.0'],
+    'mender': ['Eraser', 'Manipulator', 'Crazy Nina'],
   };
 
   @override

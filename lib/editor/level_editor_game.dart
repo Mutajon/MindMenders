@@ -183,15 +183,26 @@ class LevelEditorGame extends Forge2DGame
 
       case 'enemy':
       case 'mender':
-        // Place unit (replaces existing unit if any)
-        print('🔧 Placing unit $currentBrushOption');
-        tileGrid[tileModel.y][tileModel.x] = TileDefinition(
-          x: tileModel.x,
-          y: tileModel.y,
-          type: currentTile.type,
-          alliance: currentTile.alliance,
-          unitName: currentBrushOption,
-        );
+        // Place unit (replaces existing unit if any) or erase unit
+        if (currentBrushOption == 'Eraser') {
+          print('🔧 Erasing unit');
+          tileGrid[tileModel.y][tileModel.x] = TileDefinition(
+            x: tileModel.x,
+            y: tileModel.y,
+            type: currentTile.type,
+            alliance: currentTile.alliance,
+            unitName: null, // Remove unit
+          );
+        } else {
+          print('🔧 Placing unit $currentBrushOption');
+          tileGrid[tileModel.y][tileModel.x] = TileDefinition(
+            x: tileModel.x,
+            y: tileModel.y,
+            type: currentTile.type,
+            alliance: currentTile.alliance,
+            unitName: currentBrushOption,
+          );
+        }
         break;
     }
 
