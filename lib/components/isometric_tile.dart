@@ -6,6 +6,7 @@ import '../models/tile_model.dart';
 import '../utils/grid_utils.dart';
 import 'dart:math' as math;
 import 'tile_control_glow.dart';
+import 'memory_shield_component.dart';
 
 class IsometricTile extends PositionComponent
     with TapCallbacks, HoverCallbacks, HasGameReference<FlameGame> {
@@ -19,6 +20,9 @@ class IsometricTile extends PositionComponent
 
   // Reference to external glow component
   TileControlGlow? _glowComponent;
+
+  // Reference to shield component for Memory tiles
+  MemoryShieldComponent? _shieldComponent;
 
   IsometricTile({
     required this.tileModel,
@@ -101,11 +105,37 @@ class IsometricTile extends PositionComponent
         _glowComponent = null;
       }
     }
+
+    // Manage Shield Component for Memory tiles
+    if (tileModel.type == 'Memory') {
+      final hasShield = tileModel.shieldCount > 0;
+      final isControlled = alliance != 'neutral';
+
+      if (hasShield && isControlled) {
+        // Should have shield
+        if (_shieldComponent == null) {
+          final shieldColor = alliance == 'hive' ? Colors.red : Colors.blue;
+          _shieldComponent = MemoryShieldComponent(
+            factionColor: shieldColor,
+            hexRadius: 32.0,
+          );
+          _shieldComponent!.position = position;
+          game.add(_shieldComponent!);
+        }
+      } else {
+        // Should NOT have shield
+        if (_shieldComponent != null) {
+          _shieldComponent!.removeFromParent();
+          _shieldComponent = null;
+        }
+      }
+    }
   }
 
   @override
   void onRemove() {
     _glowComponent?.removeFromParent();
+    _shieldComponent?.removeFromParent();
     super.onRemove();
   }
 

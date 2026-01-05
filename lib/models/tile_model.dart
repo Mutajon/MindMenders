@@ -8,6 +8,10 @@ class TileModel {
   final bool blockShots;
   String alliance;
 
+  // Shield system for Memory tiles
+  int shieldCount;
+  final int maxShields;
+
   TileModel({
     required this.x,
     required this.y,
@@ -17,5 +21,7 @@ class TileModel {
     this.controllable = false,
     this.blockShots = false,
     this.alliance = 'Neutral',
+    this.shieldCount = 0,
+    this.maxShields = 1,
   });
 }

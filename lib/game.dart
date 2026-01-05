@@ -31,6 +31,7 @@ import 'components/end_turn_button_component.dart';
 import 'components/hive_spreading_indicator.dart';
 import 'components/debug_score_overlay.dart';
 import 'utils/ai_turn_controller.dart';
+import 'utils/control_validator.dart';
 
 class MyGame extends Forge2DGame
     with MouseMovementDetector, KeyboardEvents, SecondaryTapDetector {
@@ -82,6 +83,9 @@ class MyGame extends Forge2DGame
   Vector2? _lastSize;
   List<TileModel> highlightedMovementTiles = [];
   List<CardModel> discardPile = [];
+
+  // Track units on shieldless memories for end-of-turn capture
+  final List<(TileModel tile, UnitComponent unit)> _unitsOnMemories = [];
 
   MyGame({
     this.level,
@@ -699,8 +703,14 @@ class MyGame extends Forge2DGame
           return false;
         }
 
+        // SKIP Memory tiles - they are handled separately at turn end
+        if (tile.type == 'Memory') {
+          // Don't capture memories during movement
+          return;
+        }
+
         if (tile.alliance.toLowerCase() == 'neutral') {
-          // Capture current
+          // Capture current tile (no connectivity check during movement)
           tileControlChange(tile, unitAlliance);
           tilesCapturedThisStep++;
 
@@ -708,20 +718,22 @@ class MyGame extends Forge2DGame
           final neighbors = gridUtils.getNeighbors(tile.x, tile.y);
           for (final p in neighbors) {
             final neighbor = gridData.getTileAt(p.$1, p.$2);
-            // Skip if neighbor is null, not controllable, or NOT neutral
+            // Skip if neighbor is null, not controllable, or NOT neutral, or is Memory
             if (neighbor != null &&
                 neighbor.controllable &&
-                neighbor.alliance.toLowerCase() == 'neutral') {
-              // CRITICAL FIX: Do NOT splash capture a tile if we are about to step on it!
+                neighbor.alliance.toLowerCase() == 'neutral' &&
+                neighbor.type != 'Memory') {
+              // Don't splash-capture memories
+              // Do NOT splash capture a tile if we are about to step on it!
               if (!isInFuturePath(neighbor)) {
-                // Capture neutral neighbor
+                // Capture neutral neighbor (no connectivity check during movement)
                 tileControlChange(neighbor, unitAlliance);
                 tilesCapturedThisStep++;
               }
             }
           }
         } else if (tile.alliance != unitAlliance) {
-          // Entered an opposing tile - Capture ONLY this tile
+          // Entered an opposing tile - Capture it (no connectivity check during movement)
           tileControlChange(tile, unitAlliance);
           tilesCapturedThisStep++;
         }
@@ -740,7 +752,19 @@ class MyGame extends Forge2DGame
       },
     );
 
-    // Clear manual path (already done mostly strictly, but robustly here)
+    // Memory Tracking: If unit ended on unshieldless Memory, track for end-of-turn capture
+    if (targetTile.type == 'Memory' &&
+        targetTile.shieldCount == 0 &&
+        unitAlliance == 'Menders') {
+      // Only for player units
+      // Add to tracking list
+      _unitsOnMemories.add((targetTile, unitComponent));
+      print(
+        'Unit on shieldless memory at (${targetTile.x}, ${targetTile.y}) - will capture on turn end',
+      );
+    }
+
+    // Clear manual path
     _currentPath.clear();
   }
 
@@ -811,7 +835,131 @@ class MyGame extends Forge2DGame
     tile.alliance = newAlliance;
     print('Tile at (${tile.x}, ${tile.y}) captured by $newAlliance');
 
+    // Add shield to Memory tiles when captured
+    if (tile.type == 'Memory' && newAlliance != 'Neutral') {
+      tile.shieldCount = tile.maxShields;
+      print('Memory tile shielded for $newAlliance');
+    }
+
     _calculateControlPercentages();
+  }
+
+  /// Damage a memory shield by the specified amount
+  void damageMemoryShield(TileModel tile, int damage) {
+    if (tile.type != 'Memory') return;
+
+    if (tile.shieldCount > 0) {
+      tile.shieldCount = (tile.shieldCount - damage).clamp(0, tile.maxShields);
+      print('Memory shield damaged! Remaining: ${tile.shieldCount}');
+
+      if (tile.shieldCount == 0) {
+        print('Memory shield depleted! Memory can now be captured.');
+      }
+    }
+  }
+
+  /// Validate that all controlled dendrite tiles have a path to a Memory tile
+  /// Auto-neutralize tiles that are disconnected from their faction's memories
+  void _validateControlConnections() {
+    final tilesToNeutralize = <TileModel>[];
+
+    for (final faction in ['Hive', 'Menders']) {
+      for (var row in gridData.tiles) {
+        for (var tile in row) {
+          // Only check Dendrite tiles controlled by this faction
+          if (tile.alliance == faction &&
+              tile.type == 'Dendrite' &&
+              !ControlValidator.isConnectedToMemory(tile, faction, gridData)) {
+            tilesToNeutralize.add(tile);
+          }
+        }
+      }
+    }
+
+    // Neutralize disconnected tiles
+    for (final tile in tilesToNeutralize) {
+      print(
+        'Tile (${tile.x}, ${tile.y}) disconnected from ${tile.alliance} memories - neutralizing',
+      );
+      tileControlChange(tile, 'Neutral');
+    }
+
+    if (tilesToNeutralize.isNotEmpty) {
+      print(
+        '${tilesToNeutralize.length} tiles neutralized due to disconnection',
+      );
+    }
+  }
+
+  /// Validate control connections with visual flash effect before neutralizing
+  /// Shows 3 quick flashes in the tile's current control color
+  Future<void> _validateControlConnectionsWithEffect() async {
+    final tilesToNeutralize = <TileModel>[];
+
+    for (final faction in ['Hive', 'Menders']) {
+      for (var row in gridData.tiles) {
+        for (var tile in row) {
+          // Only check Dendrite tiles controlled by this faction
+          if (tile.alliance == faction &&
+              tile.type == 'Dendrite' &&
+              !ControlValidator.isConnectedToMemory(tile, faction, gridData)) {
+            tilesToNeutralize.add(tile);
+          }
+        }
+      }
+    }
+
+    if (tilesToNeutralize.isEmpty) {
+      print('No disconnected tiles found');
+      return;
+    }
+
+    print(
+      'Found ${tilesToNeutralize.length} disconnected tiles - starting flash effect',
+    );
+
+    // Small delay to ensure rendering system is ready
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    // Flash effect: 3 quick flashes
+    for (int flash = 0; flash < 3; flash++) {
+      print('Flash ${flash + 1}/3');
+      // Flash ON - highlight tiles in their current faction color
+      for (final tile in tilesToNeutralize) {
+        final tileComponent = getTileAt(tile.x, tile.y);
+        if (tileComponent != null) {
+          final flashColor = tile.alliance.toLowerCase() == 'hive'
+              ? Colors.red
+              : Colors.blue;
+          // Use full opacity for maximum visibility
+          tileComponent.setHighlightColor(flashColor.withValues(alpha: 1.0));
+        }
+      }
+
+      // Longer delay for visibility
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      // Flash OFF
+      for (final tile in tilesToNeutralize) {
+        final tileComponent = getTileAt(tile.x, tile.y);
+        tileComponent?.setHighlightColor(null);
+      }
+
+      // Pause between flashes
+      await Future.delayed(const Duration(milliseconds: 200));
+    }
+
+    print('Flash effect complete - neutralizing tiles');
+
+    // Neutralize disconnected tiles after flashing
+    for (final tile in tilesToNeutralize) {
+      print(
+        'Tile (${tile.x}, ${tile.y}) disconnected from ${tile.alliance} memories - neutralizing',
+      );
+      tileControlChange(tile, 'Neutral');
+    }
+
+    print('${tilesToNeutralize.length} tiles neutralized due to disconnection');
   }
 
   void _calculateControlPercentages() {
@@ -1055,12 +1203,33 @@ class MyGame extends Forge2DGame
 
     print('Starting new turn...');
 
+    // Regenerate shields for controlled Memory tiles
+    _regenerateMemoryShields();
+
+    // Validate control connections (silent, no flash effect)
+    _validateControlConnections();
+
     // Reset Energy
     currentEnergy = 4;
     _updateEnergyIndicator();
 
     updateDangerZones(); // Update danger zones at start of player turn
     drawCards(5);
+  }
+
+  void _regenerateMemoryShields() {
+    for (var row in gridData.tiles) {
+      for (var tile in row) {
+        if (tile.type == 'Memory' &&
+            tile.alliance != 'Neutral' &&
+            tile.shieldCount < tile.maxShields) {
+          tile.shieldCount = tile.maxShields;
+          print(
+            'Shield regenerated for Memory at (${tile.x}, ${tile.y}) controlled by ${tile.alliance}',
+          );
+        }
+      }
+    }
   }
 
   void drawCards(int amount) {
@@ -1397,6 +1566,13 @@ class MyGame extends Forge2DGame
   }
 
   void applyDamage(TileModel tile, int damage) {
+    // Check if tile is a shielded Memory - damage shield instead
+    if (tile.type == 'Memory' && tile.shieldCount > 0) {
+      tile.shieldCount = (tile.shieldCount - damage).clamp(0, tile.maxShields);
+      print('Memory shield damaged! Shields remaining: ${tile.shieldCount}');
+      return; // Shield absorbed the damage, don't damage unit
+    }
+
     final unitsAtTile = children.whereType<UnitComponent>().where(
       (u) => u.unitModel.x == tile.x && u.unitModel.y == tile.y,
     );
@@ -1846,15 +2022,42 @@ class MyGame extends Forge2DGame
   }
 
   // End Turn Logic
-  void endTurn() {
+  Future<void> endTurn() async {
     print('Ending Player Turn...');
 
-    // Discard all cards in hand
+    // STEP 1: Capture memories if units are standing on them
+    if (_unitsOnMemories.isNotEmpty) {
+      print('Processing ${_unitsOnMemories.length} memory captures...');
+
+      for (final (tile, unit) in _unitsOnMemories) {
+        // Double-check unit is still on the memory and alive
+        if (unit.unitModel.x == tile.x &&
+            unit.unitModel.y == tile.y &&
+            unit.unitModel.currentHP > 0 &&
+            tile.shieldCount == 0) {
+          // Capture the memory
+          final alliance = unit.unitModel.alliance;
+          tileControlChange(tile, alliance);
+          tile.shieldCount = tile.maxShields;
+          print(
+            'Memory at (${tile.x}, ${tile.y}) captured by $alliance at turn end!',
+          );
+        }
+      }
+
+      // Clear tracking list
+      _unitsOnMemories.clear();
+    }
+
+    // STEP 2: Validate control connections with visual effect
+    // This will flash and neutralize tiles disconnected from memories
+    await _validateControlConnectionsWithEffect();
+
+    // STEP 3: Discard all cards in hand
     discardPile.addAll(currentPlayerCardPool);
     currentPlayerCardPool.clear();
 
     // Clear visual components for hand
-    // (We re-layout with empty list or just trigger redraw)
     for (final card in children.whereType<CardComponent>().toList()) {
       card.removeFromParent();
     }
@@ -1862,8 +2065,8 @@ class MyGame extends Forge2DGame
     _energyIndicator.setPreviewCost(0);
     deselectCard();
 
-    // Trigger AI Turn
-    startAITurn();
+    // STEP 4: Trigger AI Turn
+    await startAITurn();
   }
 
   Future<void> startAITurn() async {
